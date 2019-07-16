@@ -22,7 +22,7 @@ LRESULT WINAPI WND(HWND, UINT, WPARAM, LPARAM)
 ```
 # *.ini
 ``` 
-// wnd.ini
+; wnd.ini
 name = WindowTitle
 icon = custom.ico
 width = 1280
@@ -30,7 +30,7 @@ height = 720
 ``` 
 
 ``` 
-// glsl.ini
+; glsl.ini
 version = 430
 include = shader_macros.h
 ``` 
