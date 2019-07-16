@@ -1,4 +1,3 @@
-![alt text](https://repository-images.githubusercontent.com/197114287/6509fe00-a804-11e9-829c-e87bcc9644dc "Pyro Logo")
 
 # Usage
 
@@ -35,6 +34,7 @@ height = 720
 version = 430
 include = shader_macros.h
 ``` 
+![alt text](https://repository-images.githubusercontent.com/197114287/6509fe00-a804-11e9-829c-e87bcc9644dc "Pyro Logo")
 
 # License
 [MIT](https://choosealicense.com/licenses/mit/) hopefully
