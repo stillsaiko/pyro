@@ -5,14 +5,20 @@
 ``` 
 // wnd.cpp
 # include <wnd.h>
+# include <glrc.h> // OpenGL
+GLRC OpenGL ;
 LRESULT WINAPI WND(HWND, UINT, WPARAM, LPARAM)
 {
   case WM_CREATE:
-    ...
+    OpenGL = GLRC(4, 3);
+    ...initialize highlevel
     ShowWindow(HWND, SW_SHOW);
+    return
   case WM_DESTROY:
-    ...
+    ...release highlevel
+    OpenGL = GLRC( ); // release
     PostQuitMessage(0);
+    return
 }
 ```
 
