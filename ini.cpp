@@ -4,7 +4,7 @@ INI::K::K(B40LL&& L, const LEX::A & R):
 { }
 // ...
 INI::S::S(B40LL&& S): B40LL(S){ }
-
+# include <memory> // std::move
 void INI::S::insert(intptr_t i, B40LL&& x, const LEX::A & y){
 	if( i > Ln )
 		i = Ln ;
