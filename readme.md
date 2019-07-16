@@ -2,6 +2,16 @@
 
 # Usage
 ``` 
+// wnd.ini
+name = WindowTitle
+icon = custom.ico
+width = 1280
+height = 720
+``` 
+
+``` 
+// wnd.cpp
+# include <wnd.h>
 LRESULT WINAPI WND(HWND, UINT, WPARAM, LPARAM)
 {
   case WM_CREATE:
