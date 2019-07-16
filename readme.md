@@ -1,5 +1,5 @@
 
-# Usage
+# WNDPROC
 
 ``` 
 // wnd.cpp
@@ -20,7 +20,7 @@ LRESULT WINAPI WND(HWND, UINT, WPARAM, LPARAM)
     return
 }
 ```
-
+# *.ini
 ``` 
 // wnd.ini
 name = WindowTitle
