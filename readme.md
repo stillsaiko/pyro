@@ -9,6 +9,7 @@ choose one of those mains with MSC (visual c++) link option
 # ```pyro io<T>``` abstract user-defined highlevel
 ``` 
 // user-defined.h
+# include <pyro/io.h>
 class Gamepad
 {
   float x, y
