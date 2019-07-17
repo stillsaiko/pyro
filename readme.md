@@ -58,12 +58,13 @@ LRESULT WINAPI WND(HWND, UINT, WPARAM, LPARAM)
   case WM_CREATE:
     InputDevice = HID<GAMEPAD>(HWND, ...)
     OpenGL = GLRC(4, 3)
-    pyro::unique<Object>.init(...) // initialize highlevel
+    ...initialize highlevel
+    pyro::unique<Object>.init(...)
     ShowWindow(HWND, SW_SHOW) // following WINAPI convention here.
     return
   case WM_DESTROY:
     ...release highlevel
-    pyro::unique<Object>.release( ) // release highlevel
+    pyro::unique<Object>.release( )
     OpenGL = GLRC( )              // release
     InputDevice = HID<GAMEPAD>( ) // release
     PostQuitMessage(0) // following WINAPI convention here.
