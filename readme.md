@@ -34,7 +34,6 @@ class Gamepad
   bool L, R
 }
 # include <pyro/io.h> // abstract template
-using namespace pyro
 class Object : public io<Gamepad>
 {
 	static constexpr float jump_momentum = 42.f
