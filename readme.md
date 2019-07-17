@@ -99,8 +99,11 @@ LRESULT WINAPI WND(HWND, UINT, WPARAM, LPARAM)
 }
 ```
 ```extern const LONG WS```  decl in wnd.h
+
 ```extern const DWORD WS_EX```  decl in wnd.h
+
 ```extern const UINT CS```  decl in wnd.h
+
 there is no impl yet existing (do it your own way)
 ```
 const LONG WS = WS_OVERLAPPED; // WND
