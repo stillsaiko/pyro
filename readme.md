@@ -73,8 +73,8 @@ LRESULT WINAPI WND(HWND, UINT, WPARAM, LPARAM)
     	pyro::unique<Object>.flush(n, &InputDevice[0])
     return
   case WM_PAINT:
-    ...render scene
-    OpenGL.swap( ) // SwapBuffers(HDC)
+    pyro::unique<Object>.render( ) // draw scene
+    SwapBuffers(OpenGL.DC) // following WINAPI convention here.
     return
 }
 ```
