@@ -106,8 +106,8 @@ LRESULT WINAPI WND(HWND, UINT, WPARAM, LPARAM)
 
 there is no impl yet existing (do it your own way)
 ```
-const LONG WS = WS_OVERLAPPED; // WND
-const DWORD WS_EX = WS_EX_APPWINDOW; // WND
-const UINT CS = CS_OWNDC; // WNDCLASS
+const LONG WS = WS_OVERLAPPED // WND
+const DWORD WS_EX = WS_EX_APPWINDOW // WND
+const UINT CS = CS_OWNDC // WNDCLASS
 ``` 
 ![alt text](https://repository-images.githubusercontent.com/197114287/6509fe00-a804-11e9-829c-e87bcc9644dc "Pyro Logo")
