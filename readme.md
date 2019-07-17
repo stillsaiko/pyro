@@ -1,4 +1,33 @@
-
+# io
+``` 
+struct Gamepad {
+  float x, y ;
+  bool A, B ;
+  bool X, Y ;
+  bool L, R ;
+};
+using namespace pyro
+class object : public io<Gamepad>
+{
+	static constexpr float jump_momentum = 42.f ;
+	float x = 0.f ;
+	float y = 0.f ;
+	float z = 0.f ;
+public:
+	GAMEPAD * flush(size_t count, GAMEPAD * gamepad)override
+	{
+		while( count )
+		{
+			if( gamepad->A )
+				this->z += jump_momentum ;
+			this->x += gamepad->x ;
+			this->y += gamepad->y ;
+			-- count ;
+		}
+		return nullptr ;
+	}
+};
+``` 
 # WNDPROC
 
 ``` 
@@ -18,6 +47,10 @@ LRESULT WINAPI WND(HWND, UINT, WPARAM, LPARAM)
     OpenGL = GLRC( ); // release
     PostQuitMessage(0);
     return
+  case WM_PAINT:
+ 	...render scene
+	OpenGL.swap( ); // SwapBuffers(HDC)
+	return
 }
 ```
 # *.ini
