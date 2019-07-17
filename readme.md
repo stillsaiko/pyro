@@ -67,8 +67,8 @@ there is no wnd.cpp impl yet existing (do it your own way)
 // wnd.cpp
 # include <wnd.h>
 # include <glrc.h> // OpenGL
-# include <hid.h> // Gamepad
-# include "user-defined.h"
+# include <hid.h> // InputDevice
+# include "user-defined.h" // Gamepad, Object
 GLRC         OpenGL
 HID<GAMEPAD> InputDevice
 # include <pyro/unique.h> // global inline singleton-container
