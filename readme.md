@@ -65,6 +65,9 @@ there is no wnd.cpp impl yet existing (do it your own way)
 ``` 
 // wnd.cpp
 # include <wnd.h>
+const LONG WS = WS_OVERLAPPED; // WND
+const DWORD WS_EX = WS_EX_APPWINDOW; // WND
+const UINT CS = CS_OWNDC; // WNDCLASS
 # include <glrc.h> // OpenGL
 # include <hid.h> // InputDevice
 # include "user-defined.h" // Gamepad, Object
