@@ -9,32 +9,32 @@ choose one of those mains with MSC (visual c++) link option
 # io
 ``` 
 // user-defined
-struct Gamepad
+class Gamepad
 {
-  float x, y ;
-  bool A, B ;
-  bool X, Y ;
-  bool L, R ;
-};
+  float x, y
+  bool A, B
+  bool X, Y
+  bool L, R
+}
 using namespace pyro
 class Object : public io<Gamepad>
 {
-	static constexpr float jump_momentum = 42.f ;
-	float x = 0.f ;
-	float y = 0.f ;
-	float z = 0.f ;
+	static constexpr float jump_momentum = 42.f
+	float x = 0.f
+	float y = 0.f
+	float z = 0.f
 public:
 	GAMEPAD * flush(size_t count, GAMEPAD * gamepad)override
 	{
 		while( count )
 		{
 			if( gamepad->A )
-				this->z += jump_momentum ;
-			this->x += gamepad->x ;
-			this->y += gamepad->y ;
-			-- count ;
+				this->z += jump_momentum
+			this->x += gamepad->x
+			this->y += gamepad->y
+			-- count
 		}
-		return nullptr ;
+		return nullptr
 	}
 	void render(void)
 	{
@@ -49,32 +49,32 @@ public:
 # include <wnd.h>
 # include <glrc.h> // OpenGL
 # include <hid.h> // Gamepad
-GLRC         OpenGL ;
-HID<GAMEPAD> InputDevice ;
+GLRC         OpenGL
+HID<GAMEPAD> InputDevice
 # include <pyro/unique.h>
-using namespace pyro ;
+using namespace pyro
 LRESULT WINAPI WND(HWND, UINT, WPARAM, LPARAM)
 {
   case WM_CREATE:
-    InputDevice = HID<GAMEPAD>(HWND, ...);
-    OpenGL = GLRC(4, 3);
-    pyro::unique<Object>.init(...); // initialize highlevel
-    ShowWindow(HWND, SW_SHOW); // following WINAPI convention here.
+    InputDevice = HID<GAMEPAD>(HWND, ...)
+    OpenGL = GLRC(4, 3)
+    pyro::unique<Object>.init(...) // initialize highlevel
+    ShowWindow(HWND, SW_SHOW) // following WINAPI convention here.
     return
   case WM_DESTROY:
     ...release highlevel
-    pyro::unique<Object>.release( ); // release highlevel
-    OpenGL = GLRC( );              // release
-    InputDevice = HID<GAMEPAD>( ); // release
-    PostQuitMessage(0); // following WINAPI convention here.
+    pyro::unique<Object>.release( ) // release highlevel
+    OpenGL = GLRC( )              // release
+    InputDevice = HID<GAMEPAD>( ) // release
+    PostQuitMessage(0) // following WINAPI convention here.
     return
   case WM_INPUT:
     if( size_t n = InputDevice(WPARAM, LPARAM) )
-    	pyro::unique<Object>.flush(n, &InputDevice[0]);
+    	pyro::unique<Object>.flush(n, &InputDevice[0])
     return
   case WM_PAINT:
     ...render scene
-    OpenGL.swap( ); // SwapBuffers(HDC)
+    OpenGL.swap( ) // SwapBuffers(HDC)
     return
 }
 ```
