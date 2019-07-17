@@ -56,7 +56,7 @@ using namespace pyro ;
 LRESULT WINAPI WND(HWND, UINT, WPARAM, LPARAM)
 {
   case WM_CREATE:
-    InputDevice = HID<GAMEPAD> ;
+    InputDevice = HID<GAMEPAD>(HWND, ...);
     OpenGL = GLRC(4, 3);
     pyro::unique<Object>.init(...); // initialize highlevel
     ShowWindow(HWND, SW_SHOW); // following WINAPI convention here.
