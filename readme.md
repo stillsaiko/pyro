@@ -1,12 +1,3 @@
-
-# *.rc
-```
-# include <rc.h>
-ICO(custom.ico)
-RC(wnd.ini)
-RC(glsl.ini)
-RC(shader_macros.h)
-```
 # *.ini
 ``` 
 ; wnd.ini
@@ -15,6 +6,14 @@ icon = custom.ico
 width = 1280
 height = 720
 ``` 
+# *.rc
+```
+# include <rc.h>
+ICO(custom.ico)
+RC(wnd.ini)
+RC(glsl.ini)
+RC(shader_macros.h)
+```
 # main
 ```extern LRESULT WND(HWND, UINT, WPARAM, LPARAM)``` 
 decl in wnd.h
