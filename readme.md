@@ -1,3 +1,20 @@
+
+# *.rc
+```
+# include <rc.h>
+ICO(custom.ico)
+RC(wnd.ini)
+RC(glsl.ini)
+RC(shader_macros.h)
+```
+# *.ini
+``` 
+; wnd.ini
+name = WindowTitle
+icon = custom.ico
+width = 1280
+height = 720
+``` 
 # main
 ```extern LRESULT WND(HWND, UINT, WPARAM, LPARAM)``` 
 decl in wnd.h
@@ -80,22 +97,6 @@ LRESULT WINAPI WND(HWND, UINT, WPARAM, LPARAM)
     return
 }
 ```
-# *.rc
-```
-# include <rc.h>
-ICO(custom.ico)
-RC(wnd.ini)
-RC(glsl.ini)
-RC(shader_macros.h)
-```
-# *.ini
-``` 
-; wnd.ini
-name = WindowTitle
-icon = custom.ico
-width = 1280
-height = 720
-``` 
 
 ``` 
 ; glsl.ini
