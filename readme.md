@@ -1,3 +1,4 @@
+![alt text](https://repository-images.githubusercontent.com/197114287/6509fe00-a804-11e9-829c-e87bcc9644dc "Pyro Logo")
 # *.ini
 ``` 
 ; wnd.ini
@@ -23,7 +24,6 @@ RC(shader_macros.h)
 main, WinMain both are compiled in main.cpp
 choose one of those mains with MSC (visual c++) link option
 	... either /SUBSYSTEM:CONSOLE or /SUBSYSTEM:WINDOWS
-![alt text](https://repository-images.githubusercontent.com/197114287/6509fe00-a804-11e9-829c-e87bcc9644dc "Pyro Logo")
 # user-defined highlevel
 ``` 
 // user-defined.h
