@@ -51,7 +51,7 @@ public:
 # include <hid.h> // Gamepad
 GLRC         OpenGL
 HID<GAMEPAD> InputDevice
-# include <pyro/unique.h>
+# include <pyro/unique.h> // global inline singleton-container
 using namespace pyro
 LRESULT WINAPI WND(HWND, UINT, WPARAM, LPARAM)
 {
