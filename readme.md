@@ -41,7 +41,7 @@ class Object : public io<Gamepad>
 	float y = 0.f
 	float z = 0.f
 public:
-	GAMEPAD * flush(size_t count, Gamepad * gamepad)override
+	Gamepad * flush(size_t count, Gamepad * gamepad)override
 	{
 		while( count )
 		{
