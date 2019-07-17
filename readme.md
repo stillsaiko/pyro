@@ -27,6 +27,10 @@ public:
 		}
 		return nullptr ;
 	}
+	void render(void)
+	{
+		... render object here
+	}
 };
 ``` 
 # WNDPROC
@@ -36,32 +40,33 @@ public:
 # include <wnd.h>
 # include <glrc.h> // OpenGL
 # include <hid.h> // Gamepad
-GLRC OpenGL ;
+GLRC         OpenGL ;
 HID<GAMEPAD> InputDevice ;
 # include <pyro/unique.h>
 using namespace pyro ;
 LRESULT WINAPI WND(HWND, UINT, WPARAM, LPARAM)
 {
   case WM_CREATE:
-    OpenGL = GLRC(4, 3);
     InputDevice = HID<GAMEPAD> ;
+    OpenGL = GLRC(4, 3);
     pyro::unique<Object>.init(...); // initialize highlevel
     ShowWindow(HWND, SW_SHOW);
     return
   case WM_DESTROY:
     ...release highlevel
-    pyro::unique<Object>.release( );
-    OpenGL = GLRC( ); // release
+    pyro::unique<Object>.release( ); // release highlevel
+    OpenGL = GLRC( );              // release
+    InputDevice = HID<GAMEPAD>( ); // release
     PostQuitMessage(0);
     return
   case WM_INPUT:
-    if( size_t n = InputDevice(WPARAM, LPARAM) );
-    	pyro::unique<Object>.flush(n, &InputDevice[0])
+    if( size_t n = InputDevice(WPARAM, LPARAM) )
+    	pyro::unique<Object>.flush(n, &InputDevice[0]);
     return
   case WM_PAINT:
- 	...render scene
-	OpenGL.swap( ); // SwapBuffers(HDC)
-	return
+    ...render scene
+    OpenGL.swap( ); // SwapBuffers(HDC)
+    return
 }
 ```
 # *.ini
