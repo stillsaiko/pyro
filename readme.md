@@ -1,5 +1,6 @@
 # main
-LRESULT WND(HWND, UINT, WPARAM, LPARAM) decl in wnd.h
+```LRESULT WND(HWND, UINT, WPARAM, LPARAM)``` 
+decl in wnd.h
 there is no wnd.cpp impl yet existing (do it your own way)
 
 main, WinMain both are compiled in main.cpp
