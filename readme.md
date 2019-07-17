@@ -6,6 +6,11 @@ icon = custom.ico
 width = 1280
 height = 720
 ``` 
+``` 
+; glsl.ini
+version = 430
+include = shader_macros.h
+``` 
 # *.rc
 ```
 # include <rc.h>
