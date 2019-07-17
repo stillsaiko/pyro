@@ -1,6 +1,7 @@
 # io
 ``` 
-struct Gamepad {
+struct Gamepad
+{
   float x, y ;
   bool A, B ;
   bool X, Y ;
