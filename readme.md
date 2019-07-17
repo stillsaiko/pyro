@@ -42,7 +42,7 @@ class Object : public io<Gamepad>
 	float y = 0.f
 	float z = 0.f
 public:
-	GAMEPAD * flush(size_t count, GAMEPAD * gamepad)override
+	GAMEPAD * flush(size_t count, Gamepad * gamepad)override
 	{
 		while( count )
 		{
@@ -76,7 +76,7 @@ using namespace pyro
 LRESULT WINAPI WND(HWND, UINT, WPARAM, LPARAM)
 {
   case WM_CREATE:
-    InputDevice = HID<GAMEPAD>(HWND, ...)
+    InputDevice = HID<Gamepad>(HWND, ...)
     OpenGL = GLRC(4, 3)
     ...initialize highlevel
     pyro::unique<Object>.init(...)
