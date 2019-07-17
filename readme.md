@@ -1,5 +1,6 @@
 # io
 ``` 
+// user-defined
 struct Gamepad
 {
   float x, y ;
@@ -50,14 +51,14 @@ LRESULT WINAPI WND(HWND, UINT, WPARAM, LPARAM)
     InputDevice = HID<GAMEPAD> ;
     OpenGL = GLRC(4, 3);
     pyro::unique<Object>.init(...); // initialize highlevel
-    ShowWindow(HWND, SW_SHOW);
+    ShowWindow(HWND, SW_SHOW); // following WINAPI convention here.
     return
   case WM_DESTROY:
     ...release highlevel
     pyro::unique<Object>.release( ); // release highlevel
     OpenGL = GLRC( );              // release
     InputDevice = HID<GAMEPAD>( ); // release
-    PostQuitMessage(0);
+    PostQuitMessage(0); // following WINAPI convention here.
     return
   case WM_INPUT:
     if( size_t n = InputDevice(WPARAM, LPARAM) )
