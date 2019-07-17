@@ -1,5 +1,5 @@
 # main
-```LRESULT WND(HWND, UINT, WPARAM, LPARAM)``` 
+```extern LRESULT WND(HWND, UINT, WPARAM, LPARAM)``` 
 decl in wnd.h
 there is no wnd.cpp impl yet existing (do it your own way)
 
