@@ -8,7 +8,7 @@ struct Gamepad
   bool L, R ;
 };
 using namespace pyro
-class object : public io<Gamepad>
+class Object : public io<Gamepad>
 {
 	static constexpr float jump_momentum = 42.f ;
 	float x = 0.f ;
@@ -35,18 +35,28 @@ public:
 // wnd.cpp
 # include <wnd.h>
 # include <glrc.h> // OpenGL
+# include <hid.h> // Gamepad
 GLRC OpenGL ;
+HID<GAMEPAD> InputDevice ;
+# include <pyro/unique.h>
+using namespace pyro ;
 LRESULT WINAPI WND(HWND, UINT, WPARAM, LPARAM)
 {
   case WM_CREATE:
     OpenGL = GLRC(4, 3);
-    ...initialize highlevel
+    InputDevice = HID<GAMEPAD> ;
+    pyro::unique<Object>.init(...); // initialize highlevel
     ShowWindow(HWND, SW_SHOW);
     return
   case WM_DESTROY:
     ...release highlevel
+    pyro::unique<Object>.release( );
     OpenGL = GLRC( ); // release
     PostQuitMessage(0);
+    return
+  case WM_INPUT:
+    if( size_t n = InputDevice(WPARAM, LPARAM) );
+    	pyro::unique<Object>.flush(n, &InputDevice[0])
     return
   case WM_PAINT:
  	...render scene
