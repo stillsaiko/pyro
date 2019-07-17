@@ -20,10 +20,6 @@ RC(glsl.ini)
 RC(shader_macros.h)
 ```
 # main
-```extern LRESULT WND(HWND, UINT, WPARAM, LPARAM)``` 
-decl in wnd.h
-there is no wnd.cpp impl yet existing (do it your own way)
-
 main, WinMain both are compiled in main.cpp
 choose one of those mains with MSC (visual c++) link option
 	... either /SUBSYSTEM:CONSOLE or /SUBSYSTEM:WINDOWS
@@ -65,7 +61,8 @@ public:
 };
 ``` 
 # WNDPROC
-
+```extern LRESULT WND(HWND, UINT, WPARAM, LPARAM)```  decl in wnd.h
+there is no wnd.cpp impl yet existing (do it your own way)
 ``` 
 // wnd.cpp
 # include <wnd.h>
