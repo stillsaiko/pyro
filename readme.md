@@ -76,7 +76,7 @@ LRESULT WINAPI WND(HWND, UINT, WPARAM, LPARAM)
 {
   case WM_CREATE:
     InputDevice = HID<Gamepad>(HWND, ...)
-    OpenGL = GLRC(4, 3)
+    OpenGL = GLRC(4, 3) // core profile
     ...initialize highlevel
     pyro::unique<Object>.init(...)
     ShowWindow(HWND, SW_SHOW) // following WINAPI convention here.
