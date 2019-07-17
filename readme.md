@@ -6,7 +6,7 @@ there is no wnd.cpp impl yet existing (do it your own way)
 main, WinMain both are compiled in main.cpp
 choose one of those mains with MSC (visual c++) link option
 	... either /SUBSYSTEM:CONSOLE or /SUBSYSTEM:WINDOWS
-# pyro io abstract user-defined highlevel
+# ```pyro io<T>``` abstract user-defined highlevel
 ``` 
 // user-defined.h
 class Gamepad
