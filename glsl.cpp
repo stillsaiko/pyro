@@ -14,6 +14,7 @@
 RC& __GLSLinclude(void){
 	static RC header_include ;
 }*/
+# include "pyro/shared.h"
 GLuint __GLSLcompile(GLenum T, RC&source){
 	if( !source.n || !source )return 0u ;
 	if( GLuint shader = glCreateShader(T) ){
@@ -28,24 +29,23 @@ GLuint __GLSLcompile(GLenum T, RC&source){
 			GLint maj, min ;
 			glGetIntegerv(GL_MAJOR_VERSION, &maj);
 			glGetIntegerv(GL_MINOR_VERSION, &min);
-			// dynamic *.ini shizzle			
-			INI __ini( RC("glsl.ini") );
+			// dynamic *.ini shizzle
+			INI& ini = pyro::shared<INI>[B40LL("glsl")]; // highlevel pyro shizzle #@?!
+			if(!ini	)
+				ini = INI( RC("glsl.ini") );
 		//	ini __ini( RC("glsl.ini") );
-			for(INI::S & sect : __ini){
-				for(INI::K & expr : sect){
-					switch(expr){
-						case B40LL("include"):
-							strcpy(header_name, expr.trim(" \t\r"));
-							break ;
-						case B40LL("version"):
-							maj = expr.as_long( ),
-							min = maj/10%10,
-							maj /= 100 ;
-							break ;
-						default:
-							break ;
-					}
-				}
+			for(INI::S & sect : ini)
+			for(INI::K & expr : sect)switch(expr){
+				case B40LL("include"):
+					strcpy(header_name, expr.trim(" \t\r"));
+					break;
+				case B40LL("version"):
+					maj = expr.as_long( )/10;
+					min = maj%10;
+					maj /= 10;
+					break;
+				default:
+					break;
 			}
 		//	if(auto * a = __ini["include"])assert(sscanf(a, "%s", header_name));
 		//	if(auto * a = __ini["version"])assert(sscanf(a, "%i", &maj)),min=maj/10%10,maj/=100;

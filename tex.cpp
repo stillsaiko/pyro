@@ -40,12 +40,12 @@ constexpr GLenum TEXBINDING(GLenum target){ // TEXTARGET
 }
 // n-dimensional ______________________________________________________________________
 // ____________________________________________________________________________________
-void TEXBASE::bind(GLenum slot){
+void TEX::bind(GLenum slot){
 	assert(ID);
 	glActiveTexture(slot);									GL_ASSERT
 	glBindTexture(T, ID);									GL_ASSERT
 }
-void TEXBASE::param(GLenum a, GLenum x){
+void TEX::param(GLenum a, GLenum x){
 	assert(ID);
 	GLint B ;
 	glGetIntegerv(TEXBINDING(T), &B);						GL_ASSERT
@@ -53,7 +53,7 @@ void TEXBASE::param(GLenum a, GLenum x){
 	glTexParameteriv(T, a, &(GLint&)x);						GL_ASSERT
 	glBindTexture(T, B);									GL_ASSERT
 }
-void TEXBASE::mipmap(void){
+void TEX::mipmap(void){
 	assert(ID);
 	GLint B ;
 	glGetIntegerv(TEXBINDING(T), &B);						GL_ASSERT
@@ -61,6 +61,8 @@ void TEXBASE::mipmap(void){
 	glGenerateMipmap(T);									GL_ASSERT
 	glBindTexture(T, B);									GL_ASSERT
 }
+// protected
+TEX::TEX(void){ }
 // 1-dimensional ______________________________________________________________________
 // ____________________________________________________________________________________
 void TEX1D::image(GLenum i, GLsizei X, GLvoid * PX){
@@ -87,6 +89,9 @@ TEX1D::TEX1D(TEXTARGET T, GLenum i, GLsizei X, GLvoid * PX){
 	this->T = T ;
 	glGenTextures(1u, &ID);											GL_ASSERT
 	image(i, X, PX);
+}
+TEX1D& TEX1D::operator = (TEX1D&& a)noexcept {
+	ID = a.ID; T = a.T; a.ID = 0; a.T = 0;	return *this ;
 }
 // 2-dimensional ______________________________________________________________________
 // ____________________________________________________________________________________
@@ -118,6 +123,9 @@ TEX2D::TEX2D(TEXTARGET T, GLenum i, GLsizei X, GLsizei Y, GLvoid * PX){
 	glGenTextures(1u, &ID);											GL_ASSERT
 	image(i, X, Y, PX); //	AO = ::TEX<2D>(GL_DEPTH_COMPONENT16, 720, 720);
 }
+TEX2D& TEX2D::operator = (TEX2D&& a)noexcept {
+	ID = a.ID; T = a.T; a.ID = 0; a.T = 0;	return *this ;
+}
 // 3-dimensional ______________________________________________________________________
 // ____________________________________________________________________________________
 void TEX3D::image(GLenum i, GLsizei X, GLsizei Y, GLsizei Z, GLvoid * PX){
@@ -148,6 +156,10 @@ TEX3D::TEX3D(TEXTARGET T, GLenum i, GLsizei X, GLsizei Y, GLsizei Z, GLvoid * PX
 	glGenTextures(1u, &ID);											GL_ASSERT
 	image(i, X, Y, Z, PX);
 }
+TEX3D& TEX3D::operator = (TEX3D&& a)noexcept {
+	ID = a.ID; T = a.T; a.ID = 0; a.T = 0;	return *this ;
+}
+/*
 // template specialization __________________________________________________
 // n-dimensional ______________________________________________________
 TEX<1D>::TEX(GLenum F, GLsizei X, GLvoid* P): TEX1D(1D, F, X, P){ }
@@ -204,4 +216,4 @@ TEX<2D_MULTISAMPLE_ARRAY>::operator = (TEX<2D_MULTISAMPLE_ARRAY>&& a)noexcept { 
 // ___________________________________ B U F F E R _________________________________
 // _________________________________________________________________________________
 TEX<BUFFER>::TEX(void){ assert(false); }
-TEX<BUFFER>::TEX(GLenum internalformat, GLuint buffer){ assert(false); }
+TEX<BUFFER>::TEX(GLenum internalformat, GLuint buffer){ assert(false); }*/

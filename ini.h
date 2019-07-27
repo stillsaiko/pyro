@@ -30,4 +30,5 @@ struct INI {
 	INI(void);
 	INI(void);
 	INI(RC&&);
+	inline operator bool(void)const { return L && Ln; }
 };

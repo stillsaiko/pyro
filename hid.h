@@ -34,7 +34,7 @@ struct __HID {
 	__HID(void);
 	__HID(void);
 	__HID(USHORT usUsagePage, USHORT usUsage, HWND hWnd);
-	size_t operator( )(WPARAM W, LPARAM L);
+	size_t operator( )(WPARAM W, LPARAM L); // returns access length
 protected:
 	std::set<HANDLE> set ;
 	RAWINPUTDEVICE RIDEV {0};

@@ -5,6 +5,7 @@
 //const char * cmdline(nullptr);
 HWND wnd(NULL);
 //size_t FPS(0u);
+# include "pyro/shared.h"
 int __main(const char * cmdline, HINSTANCE hInstance, int SW){
 	/*{
 		char buf[512];
@@ -18,13 +19,15 @@ int __main(const char * cmdline, HINSTANCE hInstance, int SW){
 			SetCurrentDirectoryA(buf);
 		}{}
 	}*/
-	INI __ini(RC("wnd.ini"));
+	INI& ini = pyro::shared<INI>[B40LL("wnd")];
+	if(!ini	)
+		ini = INI(RC("wnd.ini"));
 //	ini __ini(RC("wnd.ini"));
 	int width(CW_USEDEFAULT), height(CW_USEDEFAULT);
 	LPCSTR name(NULL);
 	//if(auto __ini = __ini.section("WND")){
 		HICON ICON(NULL);
-		for(INI::S & sect : __ini){
+		for(INI::S & sect : ini){
 			for(INI::K & expr : sect){
 				switch( expr ){
 					case B40LL("name"):

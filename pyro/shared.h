@@ -69,7 +69,9 @@ template<class T> struct shared_t {
 			// !A != !n ? nullptr : A + n
 	}
 };
-template<class T> static inline shared_t<T> shared ;
+namespace pyro {
+	template<class T> static inline shared_t<T> shared ;
+}
 // RAM<monster_t>[B40LL("kurum")].upgrade_power(+2);
 // RAM<INI>[B40LL("wnd")]->operator[ ](0ULL)[B40LL("width")]->as_long( )
 // RAM<INI>[B40LL("wnd")][0ULL][B40LL("width")]->as_long( )

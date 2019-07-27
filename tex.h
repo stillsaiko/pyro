@@ -33,41 +33,44 @@ constexpr TEXTARGET operator "" D_MULTISAMPLE_ARRAY(unsigned long long n){
 	return (TEXTARGET) -1 ; // error
 }
 // NEW
-struct TEXBASE : public FBO::A {
+struct TEX : public FBO::A {
 	void bind(GLenum = GL_TEXTURE0);
 	void param(GLenum, GLenum);
 	void mipmap(void);
+protected:
+	TEX(void);
 };
-struct TEX1D : public TEXBASE {
+struct TEX1D : public TEX {
 	void image(GLenum format, GLsizei width, GLvoid * pixels);
 	void resize(GLsizei width);
-protected:
+//protected:
 	~
 	TEX1D(void);
 	TEX1D(void);
 	TEX1D(TEXTARGET, GLenum, GLsizei, GLvoid*);
+	TEX1D& operator = (TEX1D&&)noexcept ;
 };
-struct TEX2D : public TEXBASE {
+struct TEX2D : public TEX {
 	void image(GLenum format, GLsizei width, GLsizei height, GLvoid * pixels);
 	void resize(GLsizei width, GLsizei height);
-protected:
+//protected:
 	~
 	TEX2D(void);
 	TEX2D(void);
 	TEX2D(TEXTARGET, GLenum, GLsizei, GLsizei, GLvoid*);
+	TEX2D& operator = (TEX2D&&)noexcept ;
 };
-struct TEX3D : public TEXBASE {
+struct TEX3D : public TEX {
 	void image(GLenum format, GLsizei width, GLsizei height, GLsizei depth, GLvoid* pixels);
 	void resize(GLsizei width, GLsizei height, GLsizei depth);
-protected:
+//protected:
 	~
 	TEX3D(void);
 	TEX3D(void);
 	TEX3D(TEXTARGET, GLenum, GLsizei, GLsizei, GLsizei, GLvoid*);
+	TEX3D& operator = (TEX3D&&)noexcept ;
 };
-//template<> struct TEXBASE<CUBE_MAP_ARRAY> : public FBO::A {
-	// specl yourself
-//};
+/*
 // template prototype __________________________________________________
 template<TEXTARGET>struct TEX ;
 // n-dimensional ______________________________________________________
@@ -138,4 +141,4 @@ template <> struct TEX<2D_MULTISAMPLE_ARRAY> : public TEX3D {
 template<> struct TEX<BUFFER> : public TEXBASE {
 	TEX(void);
 	TEX(GLenum internalformat, GLuint buffer);
-};
+};*/
