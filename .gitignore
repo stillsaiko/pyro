@@ -9,3 +9,5 @@ pyro.layout
 pyro.vcxproj
 pyro.vcxproj.filters
 pyro.vcxproj.user
+com.cpp
+com.h
