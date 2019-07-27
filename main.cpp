@@ -6,6 +6,7 @@
 HWND wnd(NULL);
 //size_t FPS(0u);
 # include "pyro/shared.h"
+# include "ext.h"
 int __main(const char * cmdline, HINSTANCE hInstance, int SW){
 	/*{
 		char buf[512];
@@ -19,39 +20,28 @@ int __main(const char * cmdline, HINSTANCE hInstance, int SW){
 			SetCurrentDirectoryA(buf);
 		}{}
 	}*/
-	INI& ini = pyro::shared<INI>[B40LL("wnd")];
-	if(!ini	)
-		ini = INI(RC("wnd.ini"));
-//	ini __ini(RC("wnd.ini"));
+	INI& ini = pyro::shared<INI>[B40LL("wnd")] = INI(RC(EXT("wnd","ini")));
 	int width(CW_USEDEFAULT), height(CW_USEDEFAULT);
 	LPCSTR name(NULL);
-	//if(auto __ini = __ini.section("WND")){
-		HICON ICON(NULL);
-		for(INI::S & sect : ini){
-			for(INI::K & expr : sect){
-				switch( expr ){
-					case B40LL("name"):
-						name = expr.trim(" \t\r");
-						break ;
-					 case B40LL("icon"):
-						ICON = LoadIconA(hInstance, expr.trim(" \t\r"));
-						break ;
-					 case B40LL("width"):
-						width = expr.as_long( );
-						break ;
-					 case B40LL("height"):
-						height = expr.as_long( );
-						break ;
-					default:
-						break ;
-				}
-			}
-		}
-/*		if(auto * a = __ini["name"])	name = a ;
-		if(auto * a = __ini["icon"])	ICON = LoadIconA(hInstance, a);
-		if(auto * a = __ini["width"])	assert(sscanf(a, "%i", &width));
-		if(auto * a = __ini["height"])	assert(sscanf(a, "%i", &height));*/
-	//}
+	HICON ICON(NULL);
+	for(INI::S & sect : ini)
+	for(INI::K & expr : sect)
+	switch( expr ){
+		case B40LL("name"):
+			name = expr.trim(" \t\r");
+			break ;
+			case B40LL("icon"):
+			ICON = LoadIconA(hInstance, expr.trim(" \t\r"));
+			break ;
+			case B40LL("width"):
+			width = expr.as_long( );
+			break ;
+			case B40LL("height"):
+			height = expr.as_long( );
+			break ;
+		default:
+			break ;
+	}
 	WNDCLASS WC {
 		CS, WND, 0, 0, hInstance,
 		ICON,//(HICON)LoadIcon(GetModuleHandleA(NULL), "fruit.ico"),
