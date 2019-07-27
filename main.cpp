@@ -30,13 +30,13 @@ int __main(const char * cmdline, HINSTANCE hInstance, int SW){
 		case B40LL("name"):
 			name = expr.trim(" \t\r");
 			break ;
-			case B40LL("icon"):
+		case B40LL("icon"):
 			ICON = LoadIconA(hInstance, expr.trim(" \t\r"));
 			break ;
-			case B40LL("width"):
+		case B40LL("width"):
 			width = expr.as_long( );
 			break ;
-			case B40LL("height"):
+		case B40LL("height"):
 			height = expr.as_long( );
 			break ;
 		default:
