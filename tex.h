@@ -25,7 +25,7 @@ struct TEX2D : public TEX {
 	~
 	TEX2D(void);
 	TEX2D(void);
-	TEX2D(GLenum target, GLenum format,	GLsizei width, 
+	TEX2D(GLenum target, GLenum format, GLsizei width, 
 	                                    GLsizei height, GLvoid * pixels = nullptr);
 	TEX2D& operator = (TEX2D&&)noexcept ;
 };
@@ -37,7 +37,7 @@ struct TEX3D : public TEX {
 	~
 	TEX3D(void);
 	TEX3D(void);
-	TEX3D(GLenum target, GLenum format,	GLsizei width,
+	TEX3D(GLenum target, GLenum format, GLsizei width,
 	                                    GLsizei height,
 	                                    GLsizei depth, GLvoid * pixels = nullptr);
 	TEX3D& operator = (TEX3D&&)noexcept ;
