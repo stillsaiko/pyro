@@ -5,7 +5,7 @@
 //const char * cmdline(nullptr);
 HWND wnd(NULL);
 //size_t FPS(0u);
-# include "pyro/shared.h"
+# include "pyro/shared.h" // shared<INI>
 # include "ext.h"
 int __main(const char * cmdline, HINSTANCE hInstance, int SW){
 	/*{
