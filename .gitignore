@@ -1,0 +1,11 @@
+
+bin/pyro.lib
+gl/glew.c
+gl/glew.h
+gl/wglew.h
+pyro.cbp
+pyro.depend
+pyro.layout
+pyro.vcxproj
+pyro.vcxproj.filters
+pyro.vcxproj.user
