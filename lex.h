@@ -1,25 +1,6 @@
 # pragma once
 # include <initializer_list>
 # include <cstring>
-/*template<class G = unsigned, class S = double> struct LEX {
-	struct T {
-		G G ; // enum (grammar-index)
-		void ** A ; // arguments
-		S & as_v(size_t n = 0u);
-		char & as_a(size_t n = 0u);
-	};
-	LEX(std::initializer_list<const char *> g, const char * a, size_t n = 0u);
-	const T * begin(void)const ;
-	const T * end(void)const ;
-private:
-//	const char * a ;
-//	size_t n ;
-//	char delimiter ;
-	size_t a(const char*str, size_t len, char*val, unsigned mul, char til);
-	size_t v(const char*str, size_t len, S*val, unsigned mul, char del);
-	T * tok = nullptr ;
-	size_t len = 0u ;
-};*/
 # include "rc.h"
 # include <cstdarg>
 // struct foo { ... }
@@ -30,7 +11,7 @@ private:
 //	 shared<foo>[B40LL(expr.A[0])] = foo((const char *)expr.A[1])
 struct LEX {
 	struct G { // syntax tree
-		unsigned grammar = 0u ; // (-1)
+		unsigned grammar = 0u ; // (-1) // enum (grammar-index)
 		const char * keyword = nullptr ; // const string
 	//	std::vector<G> fork ; // null-terminated delimit array
 		G * fork = nullptr ;
@@ -50,8 +31,8 @@ struct LEX {
 		char * __trim = nullptr ; // private
 	};
 	struct X { // expr
-		unsigned G = 0xffffffff ; // syntax enum
-		LEX::A * A = nullptr ; // '\a', '\a', '\a', ...
+		unsigned G = 0xffffffff ; // syntax enum // enum (grammar-index)
+		LEX::A * A = nullptr ; // '\a', '\a', '\a', ... // arguments
 		char * ascii = nullptr ; // buffer !!!!!!!!!!
 	// sugar
 		inline operator unsigned(void){ return G ; }
