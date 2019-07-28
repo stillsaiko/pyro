@@ -1,6 +1,7 @@
 # pragma once
 # include <rc.h>
 template<class T> struct PNG ;
+# include <memory> // std::move (MinGW)
 template<> struct PNG<void> {
 	~
 	PNG(void);
@@ -58,7 +59,7 @@ template<class T> struct PNG : public PNG<void> {
 			for(unsigned j(0u); j<X; ++j)
 			for(unsigned k(0u); k<Z; ++k)
 			for(unsigned n(0u); n<N; ++n)
-				
+
 			// TODO: convert 16 -> 8 bit here
 		}
 		if(alignof(T) > Z){

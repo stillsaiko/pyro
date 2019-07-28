@@ -1,4 +1,5 @@
 # pragma once
+# include <cstddef> // size_t (MinGW)
 // {
 //	EXT filename("file_1412", "txt");
 //	fopen(filename, "rb");
