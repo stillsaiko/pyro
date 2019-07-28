@@ -6,7 +6,7 @@
 # include <cassert>
 # include <cstdio>
 // struct LR { short L, R }
-// static WAVEOUT<LR> WO ;
+// static WAVEOUT<LR> WO
 // case WM_CREATE:
 //	WO = WAVEOUT<LR>(HWND, 44100)
 // case WM_DESTROY:
