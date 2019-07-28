@@ -68,23 +68,4 @@ struct LEX {
 	}
 private:
 	size_t parse(const char * a, const size_t n, X * out);
-//	size_t parse(const char * a, size_t n, X * out, G * node);
 };
-/*template<class T = unsigned> struct LEX {
-	struct L {
-		T syntax ;
-		unsigned argc ;
-		const char ** args ;
-	};
-	~
-	LEX(void);
-	LEX(void);
-	LEX(std::initializer_list<char const*>, RC&&);
-	void operator = (LEX<T>&&)noexcept ;
-	L& operator[ ](size_t);
-private:
-	L * array = nullptr ;
-	size_t length = 0u ;
-	unsigned long long flag[4] {0}; // 256 bits
-};*/
-//# include "lex.inl"
