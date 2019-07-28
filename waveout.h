@@ -6,16 +6,17 @@
 # include <cassert>
 # include <cstdio>
 // struct LR { short L, R }
+// static WAVEOUT<LR> WO ;
 // case WM_CREATE:
-//	unique<WAVEOUT<LR>> = WAVEOUT<LR>(HWND, 44100)
+//	WO = WAVEOUT<LR>(HWND, 44100)
 // case WM_DESTROY:
-//	unique<WAVEOUT<LR>> = WAVEOUT<LR>( ) // release
+//	WO = WAVEOUT<LR>( ) // release
 // case MM_WOM_OPEN:
-//	unique<WAVEOUT<LR>>.push(8820UL, new LR[8820]) // queue 200 ms
-//	unique<WAVEOUT<LR>>.push(8820UL, new LR[8820]) // queue 200 ms
+//	WO.push(8820UL, new LR[8820]) // queue 200 ms
+//	WO.push(8820UL, new LR[8820]) // queue 200 ms
 // case MM_WOM_DONE:
-//	delete[ ] unique<WAVEOUT<LR>>.pop(WPARAM, LPARAM)
-//	unique<WAVEOUT<LR>>.push(8820UL, new LR[8820]) // queue 200 ms
+//	delete[ ] WO.pop(WPARAM, LPARAM)
+//	WO.push(8820UL, new LR[8820]) // queue 200 ms
 template<class T> struct WAVEOUT {
 	~
 	WAVEOUT(void);
