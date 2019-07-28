@@ -1,4 +1,5 @@
 # pragma once
+# include <cstdlib> // size_t (MinGW)
 namespace pyro {
 	template<class T> struct audio {
 		// WAVEOUT
