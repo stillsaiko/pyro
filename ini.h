@@ -1,7 +1,21 @@
 # pragma once
+// config file
 # include "rc.h"
 # include "lex.h"
 # include "b40.h"
+// if( INI config = INI(RC(".ini")) )
+// for(INI::S & section : config)
+//  switch(section)
+//	case B40LL("user_section"):
+//		for(INI::K & key : section)
+//		 switch(key)
+//		 case B40LL("property_int"):
+//			if( key.equals("undefined") ) ...
+//			else key.as_long( ) ...
+//		 case B40LL("property_str"):
+//			if( key.equals("sample text") ) ...
+//			else (const char *) key ...
+//			key.trim(" \t\r") -> const char *
 struct INI {
 	enum { SECTION, COMMENT, KEY };
 	struct K :

@@ -1,6 +1,14 @@
 # pragma once
 # include "wnd.h"
+// DIB requires CS_BYTEALIGNCLIENT or CS_BYTEALIGNWINDOW
 struct BGR { unsigned char B, G, R ; };
+// case WM_CREATE:
+//	unique<DIB> = DIB(GetDC(HWND), X, Y)
+// case WM_PAINT:
+//	memset(unique<DIB>[0], 255, sizeof(BGR)*X*Y)
+//	unique<DIB>.swap( )
+// case WM_DESTROY:
+//	unique<DIB> = DIB( )
 template<class T = BGR> struct DIB {
 	~
 	DIB(void);

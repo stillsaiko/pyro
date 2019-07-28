@@ -10,6 +10,14 @@ struct VA { // warning: VA hidden by macro (seek to end)
 /////////////////////////////////////////
 // vertex array object
 # include <initializer_list>
+// struct vertex
+// {
+//	GLfloat position[3]
+//	GLfloat normal[3]
+// }
+// VAO<vertex> vert = VAO<vertex>({
+//	VAO(vertex, position),
+//	VAO(vertex, normal)	}, 768, new vertex[768])
 template<class T> class VAO {
 	GLuint vao = 0u ;
 	GLuint vbo = 0u ;

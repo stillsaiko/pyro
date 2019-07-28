@@ -22,7 +22,12 @@ private:
 };*/
 # include "rc.h"
 # include <cstdarg>
-//# include "b40.h"
+// struct foo { ... }
+// using pyro::shared
+// LEX expr_list({"[\a]\r\n", "\a=\a\r\n", ";\a\r\n"}, RC(".ini"))
+// for( LEX::X & expr : expr_list )
+//	if( expr == 1 ) // 2nd syntax from initializer_list
+//	 shared<foo>[B40LL(expr.A[0])] = foo((const char *)expr.A[1])
 struct LEX {
 	struct G { // syntax tree
 		unsigned grammar = 0u ; // (-1)
@@ -36,7 +41,7 @@ struct LEX {
 		const char * trim(const char * charset = " \t\r");
 		double as_double(void);
 		long as_long(void);
-		bool equals(const char * cstr);
+		bool equals(const char * c_str);
 	// const sugar
 		operator const char * (void)const { return raw ; }
 		const char & operator[ ](size_t i)const { return (raw)[i]; }

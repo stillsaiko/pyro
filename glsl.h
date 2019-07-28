@@ -1,4 +1,5 @@
 # pragma once
+// openGL Shader Language
 # include "gl/glew.h"
 # include <cstdio> // please *.cpp
 # include <cstring> // strlen
@@ -6,6 +7,9 @@
 // include "vao.h"
 # include <cassert>
 # define GL_ASSERT assert(glGetError( ) == GL_NO_ERROR);
+// GLSL shader_program = GLSL(RC(".vert"), RC(".frag"))
+// glUseProgram(shader_program)
+// glUniform1i(shader_program["sampler"], 0)
 struct GLSL {
 	template<size_t N, class T> struct U {
 		GLint location = -1 ;

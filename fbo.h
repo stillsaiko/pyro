@@ -8,6 +8,17 @@
 	DEPTH_ATTACHMENT = GL_DEPTH_ATTACHMENT,
 	DEPTH_STENCIL_ATTACHMENT = GL_DEPTH_STENCIL_ATTACHMENT
 }*/
+// RBO depth = RBO(...)
+// TEX2D color_0 = TEX2D(...)
+// TEX2D color_1 = TEX2D(...)
+// FBO framebuffer = FBO(depth, color_0, color_1)
+// + framebuffer // bind framebuffer
+//	...
+// - framebuffer // unbind framebuffer
+// TEX2D color_0_new = TEX2D(...)
+// framebuffer.attach(GL_COLOR_ATTACHMENT_0, color_0_new)
+// framebuffer.draw(GL_COLOR_ATTACHMENT_0)
+//	...
 struct FBO {
 	struct A {
 		GLuint ID = 0u ;

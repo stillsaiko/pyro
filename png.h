@@ -21,10 +21,17 @@ public:
 	char * memory = nullptr ;
 };
 # include <cassert>
-# include <typeinfo>
 // either 1 or 2
-template<class T> // T**
-struct PNG : public PNG<void> {
+// T**
+# include <typeinfo>
+// struct RGB { uint8_t R, G, B }
+// PNG<RGB> image = PNG<RGB>(RC(".png"))
+// for(size_t Y=0UL; Y < image.Y; ++Y)
+// for(size_t X=0UL; X < image.X; ++X)
+//	image[Y][X].R = ...
+//	image[Y][X].G = ...
+//	image[Y][X].B = ...
+template<class T> struct PNG : public PNG<void> {
 	static_assert(alignof(T)<3, "max depth of 16 bit (either 1 or 2)");
 	PNG(RC&& file): PNG<void>( std::move(file) ){
 		if(memory && X*Y && Z*N)

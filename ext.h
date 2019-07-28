@@ -1,4 +1,9 @@
 # pragma once
+// {
+//	EXT filename("file_1412", "txt");
+//	fopen(filename, "rb");
+//	...
+// }
 struct EXT {
 	~
 	EXT(void);
