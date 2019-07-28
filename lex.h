@@ -52,20 +52,6 @@ struct LEX {
 	unsigned remove(intptr_t); // one expr
 	size_t save(const char * filename);
 	void append(const char * fmt, ...);
-	void insert(unsigned index, unsigned G, va_list);
-// sugar
-	inline void insert(unsigned index, unsigned G, ...){
-		va_list va ;
-		va_start(va, G);
-		insert(index, G, va);
-		va_end(va);
-	}
-	inline void append(unsigned G, ...){
-		va_list va ;
-		va_start(va, G);
-		insert(Xn, G, va);
-		va_end(va);
-	}
 private:
 	size_t parse(const char * a, const size_t n, X * out);
 };
