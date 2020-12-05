@@ -23,26 +23,28 @@ struct INI {
 	public LEX::A {
 		K(B40LL&&, const LEX::A &);
 	};
-	class S : public B40LL {
-		K * L = nullptr ;
-		size_t Ln = 0UL ;
-	public:
+	struct S : public B40LL {
+		~
+		S(void)noexcept ;
 		S(B40LL&&);
 		void insert(intptr_t, B40LL&&, const LEX::A &);
 		K * operator[ ](unsigned long long);
 		K * begin(void);
 		K * end(void);
+	private:
+		K * L = nullptr ;
+		size_t Ln = 0UL ;
 	};
 	S * L = nullptr ;
 	size_t Ln = 0UL ;
-	S * from = nullptr ;
-	S * to = nullptr ;
-	S & operator[ ](unsigned long long K);
-	S * begin(void);
-	S * end(void);
 	~
-	INI(void);
+	INI(void)noexcept ;
 	INI(void);
 	INI(RC&&);
+	INI(INI&&)noexcept ;
+	void operator = (INI&&)noexcept ; // move
+	S & operator[ ](unsigned long long K); // ambiguous first section
+	S * begin(void);
+	S * end(void);
 	inline operator bool(void)const { return L && Ln; }
 };

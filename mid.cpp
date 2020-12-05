@@ -9,7 +9,9 @@ constexpr unsigned BIG16(const char a[2]){
 	return	static_cast<unsigned char>(a[0]) << 8u
 		^	static_cast<unsigned char>(a[1]) << 0u ;
 }
-MID::~MID(void){ }
+MID::~MID(void)noexcept {
+	// release......................
+}
 MID::MID(void){ }
 # include <cassert>
 # include <cstdio>
@@ -23,7 +25,7 @@ MID::MID(RC&& a){
 	unsigned format ;
 	unsigned tracks ;
 	unsigned delta ;
-	while(pop_i < a.n){
+	while(pop_i < a.size){
 		unsigned type = BIG32(pop(4u));
 		unsigned n = BIG32(pop(4u));
 		switch(type){
@@ -113,4 +115,8 @@ MID::MID(RC&& a){
 				break ;
 		}
 	}
+}
+void MID::operator = (MID&&)noexcept {
+	this->~MID( ); // ~
+	// move......................
 }

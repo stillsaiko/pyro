@@ -1,0 +1,13 @@
+pyro.vcxproj.user
+pyro.vcxproj.filters
+pyro.vcxproj
+pyro.lib
+pyro.layout
+pyro.depend
+pyro.cbp
+gl/wglew.h
+gl/glew.h
+gl/glew.c
+com.h
+com.cpp
+libpyro.a

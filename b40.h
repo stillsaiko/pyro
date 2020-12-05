@@ -1,3 +1,4 @@
+# pragma once
 constexpr unsigned char A2B40[128] {
 0,	0,	0,	0,	0,	0,	0,	0,	// NUL SOH STX ETX EOT ENQ ACK BEL
 0,	0,	0,	0,	0,	0,	0,	0,	//	BS	HT	LF	VT	FF	CR	SO	SI
@@ -59,7 +60,7 @@ public:
 	constexpr B40L(void): UL(0UL) { }
 	constexpr B40L(decltype(UL) U): UL(U) { }
 	constexpr B40L(const char A[ ]): // 6U
-		UL(	B40(A) / 0x0640
+		UL(	B40(A) / 0x0640 // '\s' is treat like '\0' #@?!
 		?	B40(A) + ((decltype(UL)) B40(A+3U) << 16U)
 		:	B40(A) + 0UL )
     { }
@@ -78,7 +79,7 @@ public:
 	constexpr B40LL(void): ULL(0ULL) { }
 	constexpr B40LL(decltype(ULL) U): ULL(U) { }
 	constexpr B40LL(const char A[ ]): // 12U
-		ULL( B40L(A) / 0x06400000
+		ULL( B40L(A) / 0x06400000 // '\s' is treat like '\0' #@?!
 		?	 B40L(A) + ((decltype(ULL)) B40L(A+6U) << 32U)
 		:	 B40L(A) + 0ULL )
     { }

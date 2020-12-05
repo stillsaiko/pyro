@@ -1,81 +1,50 @@
 # include "wnd.h"
-# include "ini.h"
+# include "error.h"
 # include <cstdio>
-# include <cassert>
-HWND wnd(NULL);
-# include "pyro/shared.h" // shared<INI>
-int __main(const char * cmdline, HINSTANCE hInstance, int SW){
-	INI& ini = pyro::shared<INI>[B40LL("wnd")] = INI(RC("wnd.ini"));
-	int width(CW_USEDEFAULT), height(CW_USEDEFAULT);
-	LPCSTR name(NULL);
-	HICON ICON(NULL);
-	for(INI::S & sect : ini)
-	for(INI::K & expr : sect)
-	switch( expr ){
-		case B40LL("name"):
-			name = expr.trim(" \t\r");
-			break ;
-		case B40LL("icon"):
-			ICON = LoadIconA(hInstance, expr.trim(" \t\r"));
-			break ;
-		case B40LL("width"):
-			width = expr.as_long( );
-			break ;
-		case B40LL("height"):
-			height = expr.as_long( );
-			break ;
-		default:
-			break ;
+int WINAPI WinMain(_In_ HINSTANCE hModule, _In_opt_ HINSTANCE, _In_ LPSTR lpCmdLine, _In_ int nShowCmd)
+{
+	LPCSTR lpszIcon="wnd.ico", lpszCursor=IDC_HAND;
+	LPCSTR lpszMenu="lpszClass", lpszClass="lpszClass", lpszWindow=nullptr;
+	constexpr int x=CW_USEDEFAULT, y=CW_USEDEFAULT, nWidth=CW_USEDEFAULT, nHeight=CW_USEDEFAULT, nBrush=GRAY_BRUSH;
+	{
+		WNDCLASS
+		WNDCLASS
+		{
+			CS, WND, 0, 0, hModule,
+			LoadIconA(hModule, lpszIcon),
+			LoadCursorA(NULL, lpszCursor),
+			static_cast<HBRUSH>(GetStockObject(nBrush)),
+			lpszMenu, lpszClass
+		};
+		ASSERT(!GetClassInfoA(hModule, lpszClass, &WNDCLASS));
+		if(!ASSERT(RegisterClassA(&WNDCLASS))) return 0;
 	}
-	WNDCLASS WC {
-		CS, WND, 0, 0, hInstance,
-		ICON,//(HICON)LoadIcon(GetModuleHandleA(NULL), "fruit.ico"),
-		(HCURSOR)LoadCursorA(NULL, IDC_HAND),
-		(HBRUSH)GetStockObject(GRAY_BRUSH),
-		(LPCSTR)nullptr,
-		"lpszClass"
-	};
-	if(!GetClassInfoA(hInstance, WC.lpszClassName, &WC))
-		RegisterClassA(&WC);
-		
-	if( CW_USEDEFAULT - width )
-	if( CW_USEDEFAULT - height ){
-		RECT R[1]{0, 0, width, height};
-		AdjustWindowRectEx(R, WS, FALSE, WS_EX);
-		width = R->right - R->left ;
-		height = R->bottom - R->top ;
-	}
-	wnd = CreateWindowExA( WS_EX,
-	WC.lpszClassName, name, WS, CW_USEDEFAULT, CW_USEDEFAULT,
-	width, height, (HWND)NULL, (HMENU)NULL, hInstance, (LPVOID)cmdline);
-	assert( wnd );
-	ShowWindow(wnd, SW);
-	MSG M[1] {0};
-	while(IsWindow(wnd) && GetMessageA(M,nullptr,0,0)){
+	# pragma warning(suppress: 28159)
+	MSG
+	MSG {NULL, WM_USER, 0, 0L, GetTickCount( ), {0, 0}};
+	BOOL GetMessageA;
+	if(HWND CreateWindowExA = ::CreateWindowExA(WS_EX, lpszClass, lpszWindow, WS,
+	x, y, nWidth, nHeight, NULL, NULL, hModule, lpCmdLine); ASSERT(CreateWindowExA))
+	while(/*IsWindow(CreateWindowExA) && */(GetMessageA = ::GetMessageA(&MSG, nullptr, 0, 0)) != -1 && GetMessageA)
+	{
 		// window-procedure
-		TranslateMessage(M);
-		DispatchMessageA(M);
-		// post-procedure
-		switch(M->message){
-			case WM_QUIT:
-				return M->wParam ;
-			case WM_DESTROY:
-				if(M->hwnd == wnd) PostQuitMessage(0);
-			default:
-				break ;
-		}
+		TranslateMessage(&MSG);
+		DispatchMessageA(&MSG);
 	}
-	return 0;
+	if(GetMessageA == -1)
+	{
+		LPSTR messageBuffer = nullptr;
+		size_t size = FormatMessageA(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+		NULL, GetLastError( ), MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), (LPSTR)&messageBuffer, 0, NULL);
+
+		printf("`%s'\n", messageBuffer);
+
+		LocalFree(messageBuffer);
+	}
+	ASSERT(UnregisterClassA(lpszClass, hModule));
+	return MSG.wParam;
 }
-// __clrcall
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR lpCmdLine, int nShowCmd){
-// PWSTR lpCmdLine (wWinMain)
-	MessageBoxA(NULL, lpCmdLine, "T", MB_OK); // ?#@!
-	return __main(lpCmdLine, hInstance=GetModuleHandleA(NULL), nShowCmd=SW_SHOW);
-}
-int main(int argc, const char * argv[ ]){
-	HINSTANCE hInstance = GetModuleHandleA(NULL);
-	int SW = SW_SHOW ;
-	int R = __main(argv[1], hInstance, SW);
-	return 0;
+int main(int argc, char * argv[ ])
+{
+	return WinMain(GetModuleHandleA(NULL), NULL, argv[1], SW_SHOWDEFAULT);
 }

@@ -1,15 +1,17 @@
 # include "hid.h"
-__HID :: ~ __HID(void){
+HID<>::~HID(void){
 	printf("warning: __HID (destructor)\n");
-	if( data ){delete[ ]
-		data ;
-	RIDEV.dwFlags = RIDEV_REMOVE ;
-	RegisterRawInputDevices(& RIDEV, 1, sizeof RIDEV);}
+	if( data )
+	{
+		delete[ ] data;
+		RIDEV.dwFlags = RIDEV_REMOVE;
+		RegisterRawInputDevices(& RIDEV, 1, sizeof RIDEV);
+	}
 }
-__HID :: __HID(void){ }
-__HID :: __HID(USHORT usUsagePage, USHORT usUsage, HWND hWnd){
-	if(usUsagePage == 1u && usUsage == 2u) RIM_TYPE = RIM_TYPEMOUSE ;
-	if(usUsagePage == 1u && usUsage == 6u) RIM_TYPE = RIM_TYPEKEYBOARD ;
+HID<>::HID(void){ }
+HID<>::HID(USHORT usUsagePage, USHORT usUsage, HWND hWnd){
+	if(usUsagePage == 1u && usUsage == 2u) RIM_TYPE = RIM_TYPEMOUSE;
+	if(usUsagePage == 1u && usUsage == 6u) RIM_TYPE = RIM_TYPEKEYBOARD;
 	{
 		UINT count = 0u ;
 		GetRawInputDeviceList(nullptr, & count, sizeof(RAWINPUTDEVICELIST)); 
@@ -17,11 +19,13 @@ __HID :: __HID(USHORT usUsagePage, USHORT usUsage, HWND hWnd){
 		size_t n = GetRawInputDeviceList(list, & count, sizeof(RAWINPUTDEVICELIST)); 
 		for(size_t i = 0u ; i < n ; ++ i){
 			RID_DEVICE_INFO info {0};
-			UINT size = sizeof info ;
+			UINT size = sizeof info;
+# pragma warning(suppress: 6385)
 			GetRawInputDeviceInfoA(list[i].hDevice, RIDI_DEVICEINFO, &info, & size);
 			if( list[i].dwType == RIM_TYPE )
 			if( info.hid.usUsagePage == usUsagePage )
-			if( info.hid.usUsage == usUsage ){
+			if( info.hid.usUsage == usUsage )
+			{
 			set.emplace( list[i].hDevice );/* printf(" hDevice 0x%p\n", list[i].hDevice);
 			if( info.dwType == RIM_TYPEMOUSE ) printf(" RIM_TYPEMOUSE\n");
 			if( info.dwType == RIM_TYPEKEYBOARD ) printf(" RIM_TYPEKEYBOARD\n");
@@ -116,28 +120,30 @@ __HID :: __HID(USHORT usUsagePage, USHORT usUsage, HWND hWnd){
 	RIDEV.hwndTarget = hWnd ;
 	assert( RegisterRawInputDevices(& RIDEV, 1, sizeof RIDEV) );
 }
-size_t __HID :: operator( )(WPARAM W, LPARAM L){
-	HRAWINPUT
-		RAWINPUT = reinterpret_cast<HRAWINPUT>(L);
+size_t HID<>::operator( )(WPARAM W, LPARAM L){
+	HRAWINPUT H = reinterpret_cast<HRAWINPUT>(L);
 	// ...
 	RAWINPUTHEADER RIHDR ;
 	// assert ?!
-	assert( GetRawInputData(RAWINPUT, RID_HEADER, & RIHDR, & size, sizeof RIHDR) == sizeof RIHDR );
+	assert( GetRawInputData(H, RID_HEADER, & RIHDR, & size, sizeof RIHDR) == sizeof RIHDR );
 	if( RIHDR.dwType != RIM_TYPE )return 0u ;
 	if( set.find(RIHDR.hDevice) == set.end( ) )return 0u ;
 	// assert ?!
-	assert( GetRawInputData(RAWINPUT, RID_INPUT, nullptr, &size, sizeof RIHDR) == 0u );
+	assert( GetRawInputData(H, RID_INPUT, nullptr, &size, sizeof RIHDR) == 0u );
 //		printf(" size = %u\n", size);
 	if( data )delete[ ]
 		data ;
 		data = new char[size];
 	// assert ?!
-	assert( GetRawInputData(RAWINPUT, RID_INPUT, data, &size, sizeof RIHDR) == size );
+	assert( GetRawInputData(H, RID_INPUT, data, &size, sizeof RIHDR) == size );
 /*	printf("size[%u] == sizeof(T)[%u]\n",
 		size - sizeof RIHDR - offsetof(RAWHID, bRawData), sizeof(T));*/
 //		if(!(size - sizeof RIHDR - offsetof(RAWHID, bRawData) == sizeof(T)))
 //		printf(" %u != %u\n", size - sizeof RIHDR - offsetof(RAWHID, bRawData), sizeof(T));
 //	assert( (size - sizeof RIHDR - offsetof(RAWHID, bRawData)) % sizeof(T) == 0u ); // '*!@?
-	return RIHDR.dwType == RIM_TYPEHID ? reinterpret_cast<RAWHID*>(data
-												+ sizeof RIHDR)->dwCount : 1u ; // '*!@?
+	return RIHDR.dwType == RIM_TYPEHID ? reinterpret_cast<RAWHID*>(data + sizeof RIHDR)->dwCount : 1u ; // '*!@?
+}
+HID<>::operator void *(void)
+{
+	return (void *)(data ? data + sizeof(RAWINPUTHEADER) + offsetof(RAWHID, bRawData) : nullptr);
 }

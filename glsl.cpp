@@ -1,7 +1,6 @@
 # include "glsl.h"
-# include <cassert>
+# include "error.h"
 # include <cstring>
-# include <initializer_list>
 # include "wnd.h"
 # include "ini.h"
 /*const char * __GLSLversion(void){
@@ -14,86 +13,72 @@
 RC& __GLSLinclude(void){
 	static RC header_include ;
 }*/
-# include "pyro/shared.h"
-GLuint __GLSLcompile(GLenum T, RC&source){
-	if( !source.n || !source )return 0u ;
-	if( GLuint shader = glCreateShader(T) ){
-		GLint size = source.n ; // strlen(source)
+GLuint GLSL::__GLSLcompile(GLenum T, RC&source){
+	if( !source.size || !source )return 0u ;
+	if(GLuint glCreateShader = ::glCreateShader(T); GL_ASSERT(glCreateShader))
+	{
+		GLint strlen = source.size; // strlen(source)
 		size_t magic_offset = 0u;
 		char core_version[ ] = "# version \a\a0 core\r\n";
 # ifndef _MAX_PATH
 # define _MAX_PATH 120
 # endif // _MAX_PATH
-		char header_name[_MAX_PATH] = {0};
+//		char header_name[_MAX_PATH] = "config.h";//{0};
 		{
-			GLint maj, min ;
-			glGetIntegerv(GL_MAJOR_VERSION, &maj);
-			glGetIntegerv(GL_MINOR_VERSION, &min);
-			// dynamic *.ini shizzle
-			INI& ini = pyro::shared<INI>[B40LL("glsl")]; // highlevel pyro shizzle #@?!
-			if(!ini	)
-				ini = INI( RC("glsl.ini") );
-		//	ini __ini( RC("glsl.ini") );
-			for(INI::S & sect : ini)
-			for(INI::K & expr : sect)switch(expr){
-				case B40LL("include"):
-					strcpy(header_name, expr.trim(" \t\r"));
-					break;
-				case B40LL("version"):
-					maj = expr.as_long( )/10;
-					min = maj%10;
-					maj /= 10;
-					break;
-				default:
-					break;
-			}
 		//	if(auto * a = __ini["include"])assert(sscanf(a, "%s", header_name));
 		//	if(auto * a = __ini["version"])assert(sscanf(a, "%i", &maj)),min=maj/10%10,maj/=100;
+			GLint params[1];
 			// magic core version
-			core_version[10] = maj + '0';
-			core_version[11] = min + '0';
+			GL_ASSERT(glGetIntegerv(GL_MAJOR_VERSION, params)), core_version[10] = params[0] + '0';
+			GL_ASSERT(glGetIntegerv(GL_MINOR_VERSION, params)), core_version[11] = params[0] + '0';
 			// ...
 			++ magic_offset ; // \r\n
 		}
 		const char * p = &source[0];
-		assert(strlen(header_name));
+		GLint params[1] {0};
+//		assert(strlen(header_name));
 		{
 			// magic code injection
-			RC header(header_name);
-			// RC header("config.h");
-			if(header){
-				for(size_t i=0u; i<header.n; ++i)
+//			RC header(header_name);
+			RC header("config.h");
+			if(header)
+			{
+				for(size_t i=0u; i<header.size; ++i)
 					if(header[i] == '\n')
-						++ magic_offset ; // \r\n
-				char * mem = new char[ size = strlen(core_version) + header.n + source.n ];
-				memcpy(mem, core_version, strlen(core_version));
-				memcpy(mem+strlen(core_version), &header[0], header.n);
-				memcpy(mem+strlen(core_version)+header.n, &source[0], source.n);
-				glShaderSource(shader, 1, &mem, &size);
-				glCompileShader(shader);
-				glGetShaderiv(shader, GL_COMPILE_STATUS, &size);
-				delete[ ] mem ;
+						++ magic_offset; // \r\n
+				char * mem = static_cast<char *>(malloc(strlen = ::strlen(core_version) + header.size + source.size));
+				# pragma warning(suppress: 6387)
+				memcpy(mem, core_version, ::strlen(core_version));
+				memcpy(mem+::strlen(core_version), header, header.size);
+				memcpy(mem+::strlen(core_version)+header.size, source, source.size);
+				GL_ASSERT(glShaderSource(glCreateShader, 1, &mem, &strlen));
+				GL_ASSERT(glCompileShader(glCreateShader));
+				GL_ASSERT(glGetShaderiv(glCreateShader, GL_COMPILE_STATUS, params));
+				free(mem);
 			} else {
-				printf("-------- %s not found --------\n", header_name);
+				printf("-------- %s not found --------\n", "config.h"); // header_name
 				//...
 			}
 		}
 		//glShaderSource(shader, 1, &p, &GL);
 		//glCompileShader(shader);
 		//glGetShaderiv(shader, GL_COMPILE_STATUS, &GL);
-		if( size ){
+		if(params[0])
+		{
 			// fine
-			return shader ;
-		} else {
-			glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &size);
-			char * ascii = new char[size];
-			glGetShaderInfoLog(shader, size, &size, ascii);
+			return glCreateShader;
+		}
+		else
+		{
+			GL_ASSERT(glGetShaderiv(glCreateShader, GL_INFO_LOG_LENGTH, params));
+			char * ascii = static_cast<char *>(malloc(params[0]));
+			GL_ASSERT(glGetShaderInfoLog(glCreateShader, params[0], params, ascii));
 			{
 				// magic line correction
 				bool inner = false ;
 				int line = 0;
 				char * ptr = nullptr ;
-				for(GLint k(0); k<size; ++k)
+				for(GLint k(0); k<params[0]; ++k)
 				if( inner ){
 					inner = ascii[k] >= '0' &&
 							ascii[k] <= '9';
@@ -118,111 +103,108 @@ GLuint __GLSLcompile(GLenum T, RC&source){
 					inner = ascii[k] == ':';
 				}
 			}
-			printf("`%*s'", size, ascii);
-			delete[ ] ascii ;
-			glDeleteShader(shader);
+			printf("%*s", params[0], ascii);
+			free(ascii);
+			GL_ASSERT(glDeleteShader(glCreateShader));
 		}
 	}
 	return 0u ;
 }
-GLuint __GLSLlink(std::initializer_list<GLuint> il){
-	if( GLuint program = glCreateProgram( ) ){
-		for(GLuint x : il)if( x )
-		glAttachShader(program, x);
-		glLinkProgram(program);
-		GLint GL ;
-		glGetProgramiv(program, GL_LINK_STATUS, &GL);
-		if( GL );//break
-		else {
-			glGetProgramiv(program, GL_INFO_LOG_LENGTH, &GL);
-			char * ascii = new char[GL];
-			glGetProgramInfoLog(program, GL, &GL, ascii);
+GLuint GLSL::__GLSLlink(std::initializer_list<GLuint> il)
+{
+	if(GLuint glCreateProgram = ::glCreateProgram( ); GL_ASSERT(glCreateProgram) )
+	{
+		for(GLuint glCreateShader : il) if(glCreateShader)
+		GL_ASSERT(glAttachShader(glCreateProgram, glCreateShader));
+		GL_ASSERT(glLinkProgram(glCreateProgram));
+		GLint GL = GL_TRUE;
+		GL_ASSERT(glGetProgramiv(glCreateProgram, GL_LINK_STATUS, &GL));
+		if(GL == GL_FALSE)
+		{
+			GL_ASSERT(glGetProgramiv(glCreateProgram, GL_INFO_LOG_LENGTH, &GL));
+			char * ascii = static_cast<char *>(malloc(GL));
+			GL_ASSERT(glGetProgramInfoLog(glCreateProgram, GL, &GL, ascii));
 			printf("%*s", GL, ascii);
-			delete[ ] ascii ;
-			glDeleteProgram(program);
+			free(ascii);
+			GL_ASSERT(glDeleteProgram(glCreateProgram));
 			return 0u ;
 		}
-		for(GLuint x : il)if( x )
-		glDetachShader(program, x);
-		return program ;
+		for(GLuint glCreateShader : il) if(glCreateShader)
+		GL_ASSERT(glDetachShader(glCreateProgram, glCreateShader));
+		return glCreateProgram;
 	}
-	return 0u ;
+	return 0;
 }
 // helper above
-GLSL :: ~
-GLSL(void){
-	if( program )printf("warning: GLSL (destructor)\n");
-	if( program )assert(wglGetCurrentContext( ));
-	if( program )glDeleteProgram(program);
-		program = 0u ;
+GLSL::~GLSL(void)noexcept
+{
+	if(PROGRAM)
+	if(ASSERT(wglGetCurrentContext( )))
+		GL_ASSERT(glDeleteProgram(PROGRAM)),
+		PROGRAM = 0;
 	// shader cleanup ?
-}
-GLSL ::
-GLSL(void){ }
-GLSL ::
-GLSL(RC&&comp){
-	program =
-	__GLSLlink({
-	__GLSLcompile(GL_COMPUTE_SHADER, comp) });
-}
-GLSL ::
-GLSL(RC&&vert, RC&&frag){
-	program =
-	__GLSLlink({
-	__GLSLcompile(GL_VERTEX_SHADER, vert),
-	__GLSLcompile(GL_FRAGMENT_SHADER, frag) });
-}
-GLSL ::
-GLSL(RC&&vert, RC&&geom, RC&&frag){
-	program =
-	__GLSLlink({
-	__GLSLcompile(GL_VERTEX_SHADER, vert),
-	__GLSLcompile(GL_GEOMETRY_SHADER, geom),
-	__GLSLcompile(GL_FRAGMENT_SHADER, frag) });
-}
-GLSL ::
-GLSL(RC&&vert, RC&&tesc, RC&&tese, RC&&frag){
-	program =
-	__GLSLlink({
-	__GLSLcompile(GL_VERTEX_SHADER, vert),
-	__GLSLcompile(GL_TESS_CONTROL_SHADER, tesc),
-	__GLSLcompile(GL_TESS_EVALUATION_SHADER, tese),
-	__GLSLcompile(GL_FRAGMENT_SHADER, frag) });
-}
-GLSL ::
-GLSL(RC&&vert, RC&&tesc, RC&&tese, RC&&geom, RC&&frag){
-	program =
-	__GLSLlink({
-	__GLSLcompile(GL_VERTEX_SHADER, vert),
-	__GLSLcompile(GL_TESS_CONTROL_SHADER, tesc),
-	__GLSLcompile(GL_TESS_EVALUATION_SHADER, tese),
-	__GLSLcompile(GL_GEOMETRY_SHADER, geom),
-	__GLSLcompile(GL_FRAGMENT_SHADER, frag) });
-}
-GLSL &
-GLSL ::
-operator = (GLSL && refref) noexcept {
-	// cleanup ?
-	// ...
-	program =
-	refref.program,
-	refref.program = 0u ;
-	// ...
 /*	for(int i(0); i<6; ++i)
 		shader[i] =
 		refref.shader[i],
 		refref.shader[i] = 0u ;*/
 	// ...
-	return *this ;
 }
-GLint GLSL ::
-operator[ ](const char * uniform){
-	return program ? glGetUniformLocation(program, uniform) : -1 ;
+GLSL::GLSL(void)
+{ }
+GLSL::GLSL(RC&&comp)
+{
+	PROGRAM =
+	__GLSLlink({
+	__GLSLcompile(GL_COMPUTE_SHADER, comp) });
 }
-GLSL ::
-operator GLuint(void)const {
-	if( program )return
-		program ;
+GLSL::GLSL(RC&&vert, RC&&frag)
+{
+	PROGRAM =
+	__GLSLlink({
+	__GLSLcompile(GL_VERTEX_SHADER, vert),
+	__GLSLcompile(GL_FRAGMENT_SHADER, frag) });
+}
+GLSL::GLSL(RC&&vert, RC&&geom, RC&&frag)
+{
+	PROGRAM =
+	__GLSLlink({
+	__GLSLcompile(GL_VERTEX_SHADER, vert),
+	__GLSLcompile(GL_GEOMETRY_SHADER, geom),
+	__GLSLcompile(GL_FRAGMENT_SHADER, frag) });
+}
+GLSL::GLSL(RC&&vert, RC&&tesc, RC&&tese, RC&&frag)
+{
+	PROGRAM =
+	__GLSLlink({
+	__GLSLcompile(GL_VERTEX_SHADER, vert),
+	__GLSLcompile(GL_TESS_CONTROL_SHADER, tesc),
+	__GLSLcompile(GL_TESS_EVALUATION_SHADER, tese),
+	__GLSLcompile(GL_FRAGMENT_SHADER, frag) });
+}
+GLSL::GLSL(RC&&vert, RC&&tesc, RC&&tese, RC&&geom, RC&&frag)
+{
+	PROGRAM =
+	__GLSLlink({
+	__GLSLcompile(GL_VERTEX_SHADER, vert),
+	__GLSLcompile(GL_TESS_CONTROL_SHADER, tesc),
+	__GLSLcompile(GL_TESS_EVALUATION_SHADER, tese),
+	__GLSLcompile(GL_GEOMETRY_SHADER, geom),
+	__GLSLcompile(GL_FRAGMENT_SHADER, frag) });
+}
+void GLSL::operator = (GLSL &&a)noexcept
+{
+	this->~GLSL( ); // dtor
 	// ...
-	return 0u ;
+	PROGRAM = a.PROGRAM, a.PROGRAM = 0;
+}
+GLint GLSL::operator[ ](const char * uniform)
+{
+	GLint glGetUniformLocation(-1);
+	if(ASSERT(PROGRAM))
+		glGetUniformLocation = ::glGetUniformLocation(PROGRAM, uniform), GL_ASSERT(glGetUniformLocation);
+	return glGetUniformLocation;
+}
+GLSL::operator GLuint(void)const
+{
+	return PROGRAM;
 }

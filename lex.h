@@ -45,9 +45,12 @@ struct LEX {
 	inline const X & operator[ ](size_t i)const{ return Xs[i]; }
 // ...
 	~
+	LEX(void)noexcept ;
 	LEX(void);
-	LEX(void);
-	LEX(std::initializer_list<const char*> Gs, RC&&);
+	// syntax shall be neither nullptr nor "" and no terminating \a
+	LEX(RC &&, std::initializer_list<const char*> = {"\a\n", "\a\r\n"});
+	// {"\\a", "\a\\a", "\a\n"}
+	void operator = (LEX &&)noexcept ; // move
 	unsigned insert(intptr_t, const char * fmt, ...); // one expr
 	unsigned remove(intptr_t); // one expr
 	size_t save(const char * filename);

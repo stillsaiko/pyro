@@ -1,0 +1,6 @@
+namespace pyro
+{
+	struct sampler
+	{
+	};
+}

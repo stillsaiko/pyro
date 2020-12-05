@@ -1,5 +1,5 @@
 # include "lex.h"
-# include <vector>
+// include <vector>
 # include <cassert>
 // A
 LEX::A::A(const char * a, size_t n){
@@ -28,9 +28,7 @@ const char * LEX::A::trim(const char * trim){
 	__trim[n] = '\0';
 	return __trim ;
 }
-double LEX::A::as_double(void){
-	return 0.0;
-}
+double LEX::A::as_double(void){ return 0.0; }
 long LEX::A::as_long(void){
 	char const * p = raw ;
 	long val = 0L ;
@@ -76,14 +74,15 @@ long std::remove_reference<decltype(*LEX::X::A)>::type::as_long(void){
 	return val ;
 }*/
 // LEX
-LEX::~LEX(void){
-	// dtor
+LEX::~LEX(void)noexcept {
+	// release................
 }
 LEX::LEX(void){
 	// default ctor
 }
-# include <functional>
-LEX::LEX(std::initializer_list<char const*> il, RC&& a){
+// include <functional>
+# include <new> // MinGW
+LEX::LEX(RC&& a, std::initializer_list<char const*> il){
 	{
 		bool a(false);
 		for(const char * g : il){
@@ -106,9 +105,12 @@ LEX::LEX(std::initializer_list<char const*> il, RC&& a){
 			G * node = & root ;
 			if( p[0] == '\a' ){
 			// fork new branche
+				# pragma warning(suppress: 6308)
 				node->fork = (G *)realloc(node->fork, ++node->n*sizeof(G));
 				node = node->fork + node->n - 1u ; // root -> '\a' -> ...
+				# pragma warning(suppress: 28183)
 				memset(node, 0, sizeof(G)); // NEW
+				# pragma warning(suppress: 28182)
 				node->keyword = nullptr;//"";
 			}
 //			if( p[0] > '\0' )
@@ -121,9 +123,10 @@ LEX::LEX(std::initializer_list<char const*> il, RC&& a){
 						!strcmp(node->fork[i].keyword, tok) )
 						return node->fork + i ;
 			// fork new branche
+				# pragma warning(suppress: 6308)
 				node->fork = (G *)realloc(node->fork, ++node->n*sizeof(G));
 				node = node->fork + node->n - 1u ; // root -> ... -> leaf
-				new(node)G ;
+				new(node)G;
 			//	memset(node, 0, sizeof(G));
 				node->keyword = tok ;
 				return node ;
@@ -162,8 +165,9 @@ LEX::LEX(std::initializer_list<char const*> il, RC&& a){
 	lambda(&root, -1);*/
 	// ...
 	const char * p = &a[0];
-	size_t n = a.n ;
+	size_t n = a.size ;
 	while( n ){
+# pragma warning(suppress: 6308)
 		Xs = (X *)realloc(Xs, ++Xn*sizeof(X));
 		new(Xs+Xn-1)X;
 	//	memset(Xs+Xn-1, 0, sizeof(X));
@@ -173,6 +177,12 @@ LEX::LEX(std::initializer_list<char const*> il, RC&& a){
 		p += o ;
 	}
 }
+# include <cstdio>
+void LEX::operator = (LEX&& a)noexcept {
+	this->~LEX( ); // ~
+	// move.....................
+	printf("TODO LEX = LEX&& (move semantics)\n");
+}
 unsigned LEX::insert(intptr_t i, const char * fmt, ...){
 	char buf[512]; // lol?
 	va_list va ;
@@ -180,8 +190,10 @@ unsigned LEX::insert(intptr_t i, const char * fmt, ...){
 	vsprintf(buf, fmt, va);
 	va_end(va);
 	// ...
+# pragma warning(suppress: 6308)
 	Xs = (X *)realloc(Xs, ++Xn*sizeof(X));
 	memmove(Xs+i+1, Xs+i, (Xn-i-1)*sizeof(X));
+# pragma warning(suppress: 6387)
 	memset(Xs+i, 0, sizeof(X));
 	size_t offset = parse(buf, strlen(buf), Xs+i);
 	// ...
@@ -191,10 +203,12 @@ unsigned LEX::remove(intptr_t i){
 	assert(Xs && Xn);
 	unsigned G = Xs[i].G ;
 	memmove(Xs+i, Xs+i+1, (Xn-i-1)*sizeof(X));
+# pragma warning(suppress: 6308)
 	Xs = (X *)realloc(Xs, --Xn*sizeof(X));
 	return G ;
 }
 # include <deque>
+# include <functional>
 size_t LEX::save(char const * filename){
 	std::deque<const char *> stack ;
 	std::function<bool(G *, unsigned, bool)> lambda = [&](G * node, unsigned G, bool initial){
@@ -283,6 +297,7 @@ size_t LEX::parse(char const * a, const size_t n, X * out){
 		}
 		size_t o = alarm_until(p, n + a - p, node);
 
+# pragma warning(suppress: 6308)
 			As = (A *) realloc(As, ++An*sizeof(A));
 			new(As+An-1)A{p,o};
 		//	As[An-1].p = p ; As[An-1].n = o ;

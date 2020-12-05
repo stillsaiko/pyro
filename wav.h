@@ -1,11 +1,12 @@
 # pragma once
 // RIFF WAVE
 # include "rc.h"
+//struct LR { short L, R; };
 // struct LR { short L, R }
 // WAV<LR> sample = WAV<LR>(RC(".wav"))
 // for(size_t i=0UL; i<sample.length; ++i)
 //	( sample[i].L + sample[i].R ) / 2 ...
-template<class T> struct WAV {
+template<class T/* = LR*/> struct WAV {
 	~
 	WAV(void);
 	WAV(void);
@@ -20,10 +21,10 @@ public:
 		return rc.n > 44UL ? rc.n - 44UL : 0UL;
 	}*/
 	inline T* begin(void){
-		return rc.n > 44UL ? reinterpret_cast<T*>(&rc[0] + 44UL) : nullptr;
+		return rc.size > 44UL ? reinterpret_cast<T*>(&rc[0] + 44UL) : nullptr;
 	}
 	inline T* end(void){
-		return rc.n > 44UL ? reinterpret_cast<T*>(&rc[0] + rc.n) : nullptr;
+		return rc.size > 44UL ? reinterpret_cast<T*>(&rc[0] + rc.size) : nullptr;
 	}
 };
 // wav.inl
@@ -35,7 +36,7 @@ public:
 # include <memory> // std::move MinGW
 template<class T> WAV<T>::~WAV(void){ }
 template<class T> WAV<T>::WAV(void){ }
-template<class T> WAV<T>::WAV(RC&& rc):length(rc.n > 44UL ? rc.n - 44UL : 0UL){
+template<class T> WAV<T>::WAV(RC&& rc):length(rc.size > 44UL ? rc.size - 44UL : 0UL){
 	this->rc = std::move(rc);
 }
 template<class T> WAV<T>& WAV<T>::operator = (WAV&& a)noexcept {

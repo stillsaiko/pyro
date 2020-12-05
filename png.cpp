@@ -21,10 +21,6 @@
   Mark Adler    madler@alumni.caltech.edu
  */
 
-
-/*
- * See puff.c for purpose and usage.
- */
 #ifndef NIL
 #  define NIL ((unsigned char *)0)      /* for no output option */
 #endif
@@ -874,10 +870,12 @@ int puff(unsigned char *dest,           /* pointer to destination pointer */
     }
     return err;
 }
+//////////////////////////////////////////////////////////////////////////////
 // png.cpp
+//////////////////////////////////////////////////////////////////////////////
 # include "png.h"
 # include <cstring>
-# include <cassert>
+# include "error.h"
 # include <cstdio>
 constexpr const char * puff_error[ ]{ // int - 11
 "distance is too far back in fixed or dynamic block\n", // -11
@@ -895,179 +893,195 @@ constexpr const char * puff_error[ ]{ // int - 11
 "output space exhausted before completing inflate\n", //  1
 "available inflate data did not terminate\n" //  2
 };
-constexpr unsigned BIG32(const char a[4]){
+constexpr unsigned BIG32(const char a[4])
+{
 	return	static_cast<unsigned char>(a[0]) << 24u
-		^	static_cast<unsigned char>(a[1]) << 16u
-		^	static_cast<unsigned char>(a[2]) << 8u
-		^	static_cast<unsigned char>(a[3]) << 0u ;
+	^	static_cast<unsigned char>(a[1]) << 16u
+	^	static_cast<unsigned char>(a[2]) << 8u
+	^	static_cast<unsigned char>(a[3]) << 0u ;
 }
 /*
 constexpr unsigned BIG32(const int a){
 	return ((a & 0xff) << 24u) | ((a & 0xff << 8u) << 8u) | ((a & 0xff << 16u) >> 8u) | ((a & 0xff << 24u) >> 24u);
 }
 constexpr unsigned BIG32(const char a[]){ return BIG32(*reinterpret_cast<const int*>(a)); }*/
-PNG<void>::~PNG(void){
-	if(memory)free(memory);
+PNG<void>::~PNG(void)noexcept
+{
+	const_cast<unsigned&>(X) = 0U ;
+	const_cast<unsigned&>(Y) = 0U ;
+	const_cast<unsigned&>(Z) = 0U ;
+	const_cast<unsigned&>(N) = 0U ;
 }
-PNG<void>::PNG(void):X(0),Y(0),Z(0),N(0){ }
-//# include <utility>
-# include <algorithm>
-PNG<void>::PNG(RC&& a):X(0),Y(0),Z(0),N(0){
-	size_t pop_i(0u);
-	auto pop = [&](size_t n){
-		const char * p = &a[pop_i];
-		pop_i += n ;
-		return p ;
-	};
-	if(memcmp(pop(8u), "\x89PNG\r\n\x1A\n", 8u))return ;
-	unsigned char * code(nullptr);
+PNG<void>::PNG(void):X(0),Y(0),Z(0),N(0)
+{ }
+PNG<void>::PNG(RC&& resource):X(0),Y(0),Z(0),N(0), rsrc(static_cast<RC&&>(resource))
+{
 	unsigned long size(0u);
-	unsigned char * mem(nullptr);
 	unsigned char * PLTE(nullptr);
 	unsigned long nPLTE(0u);
-	unsigned char * tRNS(nullptr);
-	unsigned long ntRNS(0u);
-	while(pop_i < a.n){
-		unsigned long n = BIG32(pop(4u));
-		switch( BIG32(pop(4u)) ){
-			case BIG32("IHDR"):
-//				printf("IHDR\n");
-				assert(n == 13u);
-				// discretization
-				const_cast<unsigned&>(X) = BIG32(pop(4)); // 0...3
-				const_cast<unsigned&>(Y) = BIG32(pop(4)); // 4...7
-				assert(X * Y);
-				// quantization
-				const_cast<unsigned&>(Z) = (*pop(1u) + 7u) / 8u ; // 8
-				const_cast<unsigned&>(N) = [ ](unsigned type)constexpr {
-				switch(type){	case 0u: return 1u ; // Greyscale
-								case 2u: return 3u ; // Truecolour
-								case 3u: return 1u ; // Indexed-colour
-								case 4u: return 2u ; // Greyscale with alpha
-								case 6u: return 4u ; // Truecolour with alpha
-								default: return 0u ;	} }(*pop(1u)); // 9
-				assert(Z<3 && N>0);
-				if(char byte = *pop(1u)) printf("warning: PNG compression %u\n",(unsigned)byte); // 10
-				if(char byte = *pop(1u)) printf("warning: PNG filter %u\n",		(unsigned)byte); // 11
-				if(char byte = *pop(1u)) printf("warning: PNG interlace %u\n",	(unsigned)byte); // 12
-				// ...
-				break ;
-			case BIG32("PLTE"):
-				printf("PLTE (%u colors)\n", n/3u);
-				assert(n % 3u == 0u);
-				assert(!PLTE);
-				PLTE = new unsigned char[nPLTE = n];
-				memcpy(PLTE, pop(n), n);
-				break ;
-			case BIG32("sPLT"):
-				printf("error: sPLT (no impl)\n");
-				pop(n);
-				break ;
-			case BIG32("tRNS"):
-				printf("error: tRNS (no impl)\n");
-				pop(n);
-			/*	printf("tRNS (n = %u)\n", n);
-				assert(!tRNS);
-				tRNS = new unsigned char[ntRNS = n];
-				memcpy(tRNS, pop(n), n);*/
-				break ;
-			case BIG32("IDAT"):
-				if(!code){
-					pop(1u);//printf("zlib compression method/flags code %x\n", (unsigned)*(const unsigned char*)pop(1u));
-					pop(1u);//printf("Additional flags/check bits %u\n", (unsigned)*(const unsigned char*)pop(1u));
-					n -= 2 ;
-				}
-				// Compressed data blocks
-				code = (unsigned char *)realloc(code, n+size);
-				memcpy(code+size, pop(n), n);
-				size += n ;
-				break ;
-			case BIG32("IEND"):
-				assert(n == 0u);
-				break ;
-			default:
-				printf("warning: %.4s (no impl)\n", &a[pop_i - 4u]);
-				pop(n);
-				break ;
+	{
+		size_t pop_i(0u);
+		auto pop = [&](size_t n)
+		{
+			const char * p = &rsrc[pop_i];
+			pop_i += n;
+			return p;
+		};
+		if(memcmp(pop(8u), "\x89PNG\r\n\x1A\n", 8u))return;
+		unsigned char *IDAT = nullptr;
+		unsigned char * tRNS(nullptr);
+		unsigned long ntRNS(0u);
+		while(pop_i < rsrc.size){
+			unsigned long n = BIG32(pop(4u));
+			switch( BIG32(pop(4u)) ){
+				case BIG32("IHDR"):
+	//				printf("IHDR\n");
+					ASSERT(n == 13u);
+					// discretization
+					const_cast<unsigned&>(X) = BIG32(pop(4)); // 0...3
+					const_cast<unsigned&>(Y) = BIG32(pop(4)); // 4...7
+					ASSERT(X * Y);
+					// quantization
+					const_cast<unsigned&>(Z) = (*pop(1u) + 7u) / 8u ; // 8
+					const_cast<unsigned&>(N) = [ ](unsigned type)constexpr
+					{
+						switch(type)
+						{
+							case 0u: return 1u ; // Greyscale
+							case 2u: return 3u ; // Truecolour
+							case 3u: return 1u ; // Indexed-colour
+							case 4u: return 2u ; // Greyscale with alpha
+							case 6u: return 4u ; // Truecolour with alpha
+							default: return 0u ;
+						}
+					} (*pop(1u)); // 9
+					ASSERT(Z<3 && N>0);
+					if(char byte = *pop(1u)) printf("warning: PNG compression %u\n",(unsigned)byte); // 10
+					if(char byte = *pop(1u)) printf("warning: PNG filter %u\n",	(unsigned)byte); // 11
+					if(char byte = *pop(1u)) printf("warning: PNG interlace %u\n",	(unsigned)byte); // 12
+					// ...
+					break ;
+				case BIG32("PLTE"):
+					ASSERT(n % 3u == 0u);
+					ASSERT(!PLTE);
+					PLTE = new unsigned char[nPLTE = n];
+					memcpy(PLTE, pop(n), n);
+					break;
+				case BIG32("IDAT"):
+					if(!IDAT)
+					{
+						pop(1u);//printf("zlib compression method/flags code %x\n", (unsigned)*(const unsigned char*)pop(1u));
+						pop(1u);//printf("Additional flags/check bits %u\n", (unsigned)*(const unsigned char*)pop(1u));
+						n -= 2 ;
+					}
+					// Compressed data blocks
+	# pragma warning(suppress: 6308)
+					IDAT = (unsigned char *)realloc(IDAT, n+size);
+	# pragma warning(suppress: 6387)
+					memcpy(IDAT+size, pop(n), n);
+					size += n;
+					break;
+				case BIG32("IEND"):
+					ASSERT(n == 0);
+					break;
+				case BIG32("sPLT"):
+				case BIG32("tRNS"):
+				case BIG32("pHYs"):
+				case BIG32("iCCP"):
+				case BIG32("cHRM"):
+					pop(n);
+					break;
+				default:
+					printf("warning: %.4s (no impl)\n", &rsrc[pop_i - 4u]);
+					pop(n);
+					break;
+			}
+			pop(4u); // CRC
 		}
-		pop(4u); // CRC
+		rsrc = RC(free, IDAT, size); // release
 	}
-	a = RC( ); // release
 	// DEFLATE
-	unsigned long len = N*Z*X*Y+Y ;
-	mem = new unsigned char[len];
-	if( int error = puff(mem, &len, code, &size) )
-			printf("error: %s", puff_error[error + 11]);
-//					else	printf("%s", puff_error[11]);
-	free(code);
-	code = nullptr ;
-	// filter method 0
-	memory = (char*)malloc(X*Y*Z*N); // allocate memory
-	for(unsigned i(0u); i<Y; ++i)
-	for(unsigned j(0u); j<X; ++j)
-	for(unsigned k(0u); k<Z*N; ++k){
-		unsigned char c = '\0', b = '\0';
-		unsigned char a = '\0', x = mem[1u+i+Z*N*(j + i*X) + k];
-		unsigned char type        = mem[0u+i+Z*N*(0 + i*X) + 0];
-		if(i*j>0u) c = memory[Z*N*(j-1 + (i-1)*X)+k];
-		if(i > 0u) b = memory[Z*N*(j-0 + (i-1)*X)+k];
-		if(j > 0u) a = memory[Z*N*(j-1 + (i-0)*X)+k];
-		switch(type){
-		case 0: // None
-			memory[Z*N*(j+i*X)+k] = x ;
-			break ;
-		case 1: // Sub
-			memory[Z*N*(j+i*X)+k] = x + a ;
-			break ;
-		case 2: // Up
-			memory[Z*N*(j+i*X)+k] = x + b ;
-			break ;
-		case 3: // Average
-			memory[Z*N*(j+i*X)+k] = x + (a + b) / 2;
-			break ;
-		case 4: // Paeth
-			memory[Z*N*(j+i*X)+k] = [&](void) {
-				int p = a + b - (int)c ;
-				int PA = abs(p - a);
-				int PB = abs(p - b);
-				int PC = abs(p - c);
-				if( PA <= PB && PA <= PC ) return x + a ;
-				else if( PB <= PC ) return x + b ;
-				else return x + c ;
-			}( );
-			break ;
-		default:
-			printf("error: PNG filter type %u\n", type);
-			break ;
-		}
+	{
+		unsigned long len = N*Z*X*Y+Y;
+		unsigned char *IDAT = static_cast<unsigned char *>(malloc(len));
+		// may reverse the bytes here as encryption for prepared *.png
+		if( int error = puff(IDAT, &len, reinterpret_cast<const unsigned char *>(& rsrc[0]), &size) )
+				printf("error: %s", puff_error[error + 11]);
+	//					else	printf("%s", puff_error[11]);
+		rsrc = RC(free, IDAT, len);
 	}
-	delete[ ] mem ; // release memory
-	// big endian to little endian for 16 bit
-	if(Z == 2){
+	// filter method 0
+	{
+		unsigned char *IDAT = static_cast<unsigned char *>(malloc(X*Y*Z*N));  // allocate memory
 		for(unsigned i(0u); i<Y; ++i)
 		for(unsigned j(0u); j<X; ++j)
-		for(unsigned k(0u); k<Z*N/2; ++k){
-			std::swap(
-				memory[Z*N*(j+i*X)+k*2+0],
-				memory[Z*N*(j+i*X)+k*2+1]
-			);
+		for(unsigned k(0u); k<Z*N; ++k){
+			unsigned char c = '\0', b = '\0';
+			unsigned char a = '\0', x = rsrc[1u+i+Z*N*(j + i*X) + k];
+			unsigned char type        = rsrc[0u+i+Z*N*(0 + i*X) + 0];
+			if(i*j>0u) c = IDAT[Z*N*(j-1 + (i-1)*X)+k];
+			if(i > 0u) b = IDAT[Z*N*(j-0 + (i-1)*X)+k];
+			if(j > 0u) a = IDAT[Z*N*(j-1 + (i-0)*X)+k];
+			switch(type){
+			case 0: // None
+				IDAT[Z*N*(j+i*X)+k] = x ;
+				break ;
+			case 1: // Sub
+				IDAT[Z*N*(j+i*X)+k] = x + a ;
+				break ;
+			case 2: // Up
+				IDAT[Z*N*(j+i*X)+k] = x + b ;
+				break ;
+			case 3: // Average
+				IDAT[Z*N*(j+i*X)+k] = x + (a + b) / 2;
+				break ;
+			case 4: // Paeth
+				IDAT[Z*N*(j+i*X)+k] = [&](void)
+				{
+					int p = a + b - (int)c ;
+					int PA = abs(p - a);
+					int PB = abs(p - b);
+					int PC = abs(p - c);
+					if( PA <= PB && PA <= PC ) return x + a ;
+					else if( PB <= PC ) return x + b ;
+					else return x + c ;
+				}( );
+				break ;
+			default:
+				printf("error: PNG filter type %u\n", type);
+				break ;
+			}
 		}
+	// big endian to little endian for 16 bit
+		if(Z == 2)
+		{
+			for(unsigned i(0u); i<Y; ++i)
+			for(unsigned j(0u); j<X; ++j)
+			for(unsigned k(0u); k<Z*N/2; ++k)
+			{
+
+				unsigned char lo = IDAT[Z*N*(j+i*X)+k*2+0];
+				IDAT[Z*N*(j+i*X)+k*2+0] = IDAT[Z*N*(j+i*X)+k*2+1];
+				IDAT[Z*N*(j+i*X)+k*2+1] = lo;
+			}
+		}
+		rsrc = RC(free, IDAT, X*Y*Z*N);
 	}
-	// indexed-color
-	if(PLTE){
-		assert(Z == 1);
-		assert(N == 1);
+	if(PLTE) // indexed-color
+	{
+		ASSERT(Z == 1);
+		ASSERT(N == 1);
 		const_cast<unsigned&>(N) = 3u ; // suddenly hahaha
-		char * ory = (char*)malloc(X*Y*Z*N);
+		auto *IDAT = static_cast<unsigned char *>(malloc(X*Y*Z*N));
 		for(unsigned i(0u); i<Y; ++i)
-		for(unsigned j(0u); j<X; ++j){
-			size_t index = (unsigned char)memory[Z*1*(X*i+j)];
-			assert(index < nPLTE);
-			memcpy(&ory[Z*N*(X*i+j)], &PLTE[index*Z*N], Z*N);
+		for(unsigned j(0u); j<X; ++j)
+		{
+			size_t index = rsrc[Z*1*(X*i+j)];
+			ASSERT(index < nPLTE);
+			memcpy(&IDAT[Z*N*(X*i+j)], &PLTE[index*Z*N], Z*N);
 		}
-		delete[ ] PLTE ;
-		free(memory);
-		memory = ory ;
+		delete[ ] PLTE;
+		rsrc = RC(free, IDAT, X*Y*Z*N);
 	}
 /*	// indexed-color
 	if(tRNS){
@@ -1075,18 +1089,15 @@ PNG<void>::PNG(RC&& a):X(0),Y(0),Z(0),N(0){
 
 	}*/
 }
-void PNG<void>::decode(const char*){
-}
-PNG<void>& PNG<void>::operator=(PNG<void>&& a)noexcept {
-	if(memory)free(memory);
+void PNG<void>::operator = (PNG<void>&& a)noexcept
+{
+	this->~PNG( ); // ~
 	const_cast<unsigned&>(X) = a.X ;
 	const_cast<unsigned&>(Y) = a.Y ;
 	const_cast<unsigned&>(Z) = a.Z ;
 	const_cast<unsigned&>(N) = a.N ;
-	memory = a.memory ;
-	a.memory = nullptr ;
-	return *this ;
 }
-void * PNG<void>::operator * (void){
-	return memory ;
+const void * PNG<void>::operator * (void)
+{
+	return &rsrc[0];
 }

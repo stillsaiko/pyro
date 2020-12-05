@@ -29,37 +29,40 @@
 # ifdef __MINGW32__
 //#	include <ddk/hidsdi.h>
 # endif // __MINGW32__
-struct __HID {
+template<class = void> struct HID;
+template<> struct HID<void>
+{
 	virtual ~
-	__HID(void);
-	__HID(void);
-	__HID(USHORT usUsagePage, USHORT usUsage, HWND hWnd);
+	HID(void);
+	HID(void);
+	HID(USHORT usUsagePage, USHORT usUsage, HWND hWnd);
 	size_t operator( )(WPARAM W, LPARAM L); // returns access length
+	operator void *(void);
 protected:
-	std::set<HANDLE> set ;
+	std::set<HANDLE> set;
 	RAWINPUTDEVICE RIDEV {0};
-	DWORD RIM_TYPE = RIM_TYPEHID ;
-	size_t size = 0u ;
-	char * data = nullptr ;
+	DWORD RIM_TYPE = RIM_TYPEHID;
+	size_t size = 0u;
+	char * data = nullptr;
 };
-template<class T>struct HID : public __HID {
-	inline HID(void){ }
-	inline HID(USHORT usUsagePage, USHORT usUsage, HWND hWnd):
-		 __HID(usUsagePage, usUsage, hWnd){ }
-	inline void operator = (HID<T> && refref) noexcept {
+template<class T> struct HID : public HID<void>
+{
+	HID(void){ }
+	HID(USHORT usUsagePage, USHORT usUsage, HWND hWnd):
+	HID<void>(usUsagePage, usUsage, hWnd){ }
+	void operator = (HID<T> && refref) noexcept
+	{
 		RIDEV = refref.RIDEV ;
 		size = refref.size ; size = 0u ;
 		data = refref.data ; data = nullptr ;
 		set = std::move(refref.set);
 	}
-	inline T * operator -> (void){ // '*!@?
-		return data ? reinterpret_cast<T*>( data
-							+ sizeof(RAWINPUTHEADER)
-							+ offsetof(RAWHID, bRawData) ) : nullptr ;
+	T * operator -> (void)
+	{
+		return reinterpret_cast<T *>(operator void *( ));
 	}
-	inline T & operator[ ](size_t index){ // '*!@?
-		return reinterpret_cast<T*>( data
-							+ sizeof(RAWINPUTHEADER)
-							+ offsetof(RAWHID, bRawData) )[index] ;
+	T & operator[ ](size_t index)
+	{
+		return reinterpret_cast<T *>(operator void *( ))[index];
 	}
 };

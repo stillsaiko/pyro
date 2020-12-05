@@ -6,11 +6,11 @@ struct V3VN3 { float V[3]; float VN[3]; };
 struct V3VT2VN3 { float V[3]; float VT[2]; float VN[3]; };
 # include <type_traits> // std::conditional
 # include "lex.h" // no thanks
-template<class T> struct OBJ {
+template<class T> struct OBJ : public DTOR {
 	const unsigned n = 0u ;
 	T * a = nullptr ;
 	enum : unsigned {
-		V3			= 3u,
+		V3		= 3u,
 		V3VT2		= 5u, // isVT2 -> sizeof(T)/alignof(T)%V3==2
 		V3VN3		= 6u, // isVN3 -> sizeof(T)/alignof(T)/V3==3
 		V3VT2VN3	= 8u
@@ -32,12 +32,19 @@ template<class T> struct OBJ {
 		sizeof(T)/alignof(T)==V3VT2VN3, "axiom mismatch");
 	typedef std::conditional<alignof(T)/sizeof(double), double, float> S ;
 // decl
-	inline OBJ(RC&& a);
+	inline~OBJ(void);
+	inline OBJ(RC&&);
+	void operator ~ (void)noexcept ; // release
+	void operator = (OBJ&&)noexcept ; // move
 	inline size_t f(size_t offset, LEX::A * A, S * Vs, S * VTs, S * VNs);
 };
 # include "lex.h"
 // obj.inl
 // impl
+template<class T>
+inline OBJ<T>::~OBJ(void){
+	operator ~ ( ); // release
+}
 template<class T>
 inline OBJ<T>::OBJ(RC&& a){
 //	enum G		{	VTv1v1,		VNv1v1v1,	  Vv1v1v1,	   Fv3v3v3,		Gn	};
@@ -68,29 +75,29 @@ inline OBJ<T>::OBJ(RC&& a){
 	unsigned Vi = 0u ;
 	for(const LEX::X & expr : syntax) switch(expr.G){
 		case VT2: // vt
-			if constexpr( true ){
-				double vt[2] {
-					expr.A[0].as_double( ),
-					expr.A[1].as_double( ) };
+			if constexpr( sizeof(T) / alignof(T) % 3 )
+			{
 				// push buffer VT2
+				VTs[VTi ++] = expr.A[0].as_double( );
+				VTs[VTi ++] = expr.A[1].as_double( );
 			}
 			continue ;
 		case VN3: // vn
-			if constexpr( true ){
-				double vn[2] {
-					expr.A[0].as_double( ),
-					expr.A[1].as_double( ),
-					expr.A[2].as_double( ) };
+			if constexpr( sizeof(T) / alignof(T) % 2 )
+			{
 				// push buffer VN3
+				VTs[VTi ++] = expr.A[0].as_double( );
+				VTs[VTi ++] = expr.A[1].as_double( );
+				VTs[VTi ++] = expr.A[2].as_double( );
 			}
 			continue ;
 		case V3: // v
-			if constexpr( true ){
-				double v[2] {
-					expr.A[0].as_double( ),
-					expr.A[1].as_double( ),
-					expr.A[2].as_double( ) };
+			if constexpr( sizeof(T) / alignof(T) )
+			{
 				// push buffer V3
+				VTs[VTi ++] = expr.A[0].as_double( );
+				VTs[VTi ++] = expr.A[1].as_double( );
+				VTs[VTi ++] = expr.A[2].as_double( );
 			}
 			continue ;
 		case F3N: // f
@@ -106,6 +113,13 @@ inline OBJ<T>::OBJ(RC&& a){
 			continue ;
 	}
 	assert(n == 3*count[F]);
+}
+template<class T> void OBJ<T>::operator ~ (void)noexcept {
+	// release..................
+}
+template<class T> void OBJ<T>::operator = (OBJ&&)noexcept {
+	operator ~ ( ); // release
+	// move....................
 }
 template<class T>
 inline size_t OBJ<T>::f(size_t offset, LEX::A * A, S * Vs, S * VTs, S * VNs){
