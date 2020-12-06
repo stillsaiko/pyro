@@ -333,6 +333,7 @@ JPEG<YCbCr>::JPEG(RC &&rc): X(0), Y(0)
 	# endif
 	}
 
+	YCbCr *pixels = static_cast<YCbCr *>(malloc(sizeof(YCbCr)*X*Y));
 
 	RST;
 	int16_t DPCM = 0;
@@ -343,12 +344,13 @@ JPEG<YCbCr>::JPEG(RC &&rc): X(0), Y(0)
 	{
 		int8_t A[8][8];
 		// IDPCM
+		// TODO: decode bitwise DC huffman
 		int (*DC)(int16_t, size_t) = [ ](int16_t X, size_t N){return X < 1<<N ? X-(2<<N)+1 : X;};
 		A[ZZ[0] >> 3][ZZ[0] & 7] = DPCM += DC(127, 7);
 		for(int n=1; n<64; ++n)
 		{
 			// IRLE
-			// TODO: decode bitwise huffman
+			// TODO: decode bitwise RLE ZZ AC huffman
 			int (*AC)(int8_t (&A)[8][8]) = [ ](int8_t (&A)[8][8]){return 0;};
 			A[ZZ[n] >> 3][ZZ[n] & 7] = AC(A);
 		}
@@ -373,6 +375,7 @@ JPEG<YCbCr>::JPEG(RC &&rc): X(0), Y(0)
 			}
 		}
 	}
+	rsrc = RC(free, pixels, sizeof(YCbCr)*X*Y);
 }
 JPEG<YCbCr>::JPEG(JPEG &&JPEG) noexcept: X(JPEG.X), Y(JPEG.Y)
 {
