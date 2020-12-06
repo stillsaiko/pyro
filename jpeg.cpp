@@ -17,98 +17,39 @@ constexpr uint32_t BIG32(const char a[4])
 }
 
 # include <emmintrin.h> // SSE2
-alignas(16) constexpr int16_t COS16_SSE2[8][8]
+alignas(16) constexpr int16_t COS16[8][8]
 {
-+32767, +32767, +32767, +32767, +32767, +32767, +32767, +32767,
-+32138, +27245, +18204, + 6392, - 6392, -18204, -27245, -32138,
-+30273, +12539, -12539, -30273, -30273, -12539, +12539, +30273,
-+27245, - 6392, -32138, -18204, +18204, +32138, + 6392, -27245,
-+23170, -23170, -23170, +23170, +23170, -23170, -23170, +23170,
-+18204, -32138, + 6392, +27245, -27245, - 6392, +32138, -18204,
-+12539, -30273, +30273, -12539, -12539, +30273, -30273, +12539,
-+ 6392, -18204, +27245, -32138, +32138, -27245, +18204, - 6392,
+	32767, 32767, 32767, 32767, 32767, 32767, 32767, 32767,
+	32138, 27245, 18204, 6392, -6392, -18204, -27245, -32138,
+	30273, 12539, -12539, -30273, -30273, -12539, 12539, 30273,
+	27245, -6392, -32138, -18204, 18204, 32138, 6392, -27245,
+	23170, -23170, -23170, 23170, 23170, -23170, -23170, 23170,
+	18204, -32138, 6392, 27245, -27245, -6392, 32138, -18204,
+	12539, -30273, 30273, -12539, -12539, 30273, -30273, 12539,
+	6392, -18204, 27245, -32138, 32138, -27245, 18204, -6392
 };
-void DCT(int16_t (&MCU)[8][8], const int8_t (&A)[8][8], const uint8_t (&Q)[8][8])
+alignas(16) constexpr int16_t COS16LR[2][8][8]
 {
-	for(int n = 0; n < 8; ++ n)
-	{
-		__m128i X = _mm_setzero_si128( );
-		for(size_t i = 0; i < 8; ++ i)
-		{
-			__m128i Y = _mm_set1_epi16(COS16_SSE2[i][n]);
-			for(size_t j = 0; j < 8; ++ j)
-			X = _mm_add_epi16(
-				X, _mm_mulhi_epi16(
-					_mm_mullo_epi16(
-						_mm_set1_epi16(A[i][j]), _mm_set1_epi16(Q[i][j])
-					),
-					_mm_mulhi_epi16(
-						Y, _mm_load_si128((const __m128i *) COS16_SSE2[j])
-					)
-				)
-			);
-		}
-		_mm_storeu_si128((__m128i *) MCU[n], X);
-	}
-}
-# include <immintrin.h> // AVX2
-alignas(32) constexpr int16_t COS16_AVX2[8][16]
-{
-	+32767, +32767, +32767, +32767, +32767, +32767, +32767, +32767, +32767, +32767, +32767, +32767, +32767, +32767, +32767, +32767,
-	+32610, +31357, +28898, +25330, +20787, +15446, + 9512, + 3211, - 3211, - 9512, -15446, -20787, -25330, -28898, -31357, -32610,
-	+32138, +27245, +18204, + 6392, - 6392, -18204, -27245, -32138, -32138, -27245, -18204, - 6392, + 6392, +18204, +27245, +32138,
-	+31357, +20787, + 3211, -15446, -28898, -32610, -25330, - 9512, + 9512, +25330, +32610, +28898, +15446, - 3211, -20787, -31357,
-	+30273, +12539, -12539, -30273, -30273, -12539, +12539, +30273, +30273, +12539, -12539, -30273, -30273, -12539, +12539, +30273,
-	+28898, + 3211, -25330, -31357, - 9512, +20787, +32610, +15446, -15446, -32610, -20787, + 9512, +31357, +25329, - 3211, -28898,
-	+27245, - 6392, -32138, -18204, +18204, +32138, + 6392, -27245, -27245, + 6392, +32138, +18204, -18204, -32138, - 6392, +27245,
-	+25330, -15446, -31357, + 3211, +32610, + 9512, -28898, -20787, +20787, +28898, - 9512, -32610, - 3211, +31357, +15446, -25329
+	// COS16L
+	32767, 32767, 32767, 32767, 32767, 32767, 32767, 32767,
+	32610, 31357, 28898, 25330, 20787, 15446, 9512, 3211,
+	32138, 27245, 18204, 6392, -6392, -18204, -27245, -32138,
+	31357, 20787, 3211, -15446, -28898, -32610, -25330, -9512,
+	30273, 12539, -12539, -30273, -30273, -12539, 12539, 30273,
+	28898, 3211, -25330, -31357, -9512, 20787, 32610, 15446,
+	27245, -6392, -32138, -18204, 18204, 32138, 6392, -27245,
+	25330, -15446, -31357, 3211, 32610, 9512, -28898, -20787,
+	// COS16R
+	32767, 32767, 32767, 32767, 32767, 32767, 32767, 32767,
+	-3211, - 9512, -15446, -20787, -25330, -28898, -31357, -32610,
+	-32138, -27245, -18204, -6392, 6392, 18204, 27245, 32138,
+	9512, 25330, 32610, 28898, 15446, -3211, -20787, -31357,
+	30273, 12539, -12539, -30273, -30273, -12539, 12539, 30273,
+	-15446, -32610, -20787, 9512, 31357, 25329, - 3211, -28898,
+	-27245, 6392, 32138, 18204, -18204, -32138, - 6392, +27245,
+	20787, 28898, -9512, -32610, -3211, 31357, 15446, -25329
 };
-void DCT(int16_t (&MCU)[8][16], const int8_t (&A)[8][8], const uint8_t (&Q)[8][8])
-{
-	for(int n = 0; n < 8; ++ n)
-	{
-		__m256i X = _mm256_setzero_si256( );
-		for(size_t i = 0; i < 8; ++ i)
-		{
-			__m256i Y = _mm256_set1_epi16(COS16_SSE2[i][n]);
-			for(size_t j = 0; j < 8; ++ j)
-			X = _mm256_add_epi16(
-				X, _mm256_mulhi_epi16(
-					_mm256_mullo_epi16(
-						_mm256_set1_epi16(A[i][j]), _mm256_set1_epi16(Q[i][j])
-					),
-					_mm256_mulhi_epi16(
-						Y, _mm256_load_si256((const __m256i *) COS16_AVX2[j])
-					)
-				)
-			);
-		}
-		_mm256_storeu_si256((__m256i *) MCU[n], X);
-	}
-}
-void DCT(int16_t (&MCU)[16][16], const int8_t (&A)[8][8], const uint8_t (&Q)[8][8])
-{
-	for(int n = 0; n < 16; ++ n)
-	{
-		__m256i X = _mm256_setzero_si256( );
-		for(size_t i = 0; i < 8; ++ i)
-		{
-			__m256i Y = _mm256_set1_epi16(COS16_AVX2[i][n]);
-			for(size_t j = 0; j < 8; ++ j)
-			X = _mm256_add_epi16(
-				X, _mm256_mulhi_epi16(
-					_mm256_mullo_epi16(
-						_mm256_set1_epi16(A[i][j]), _mm256_set1_epi16(Q[i][j])
-					),
-					_mm256_mulhi_epi16(
-						Y, _mm256_load_si256((const __m256i *) COS16_AVX2[j])
-					)
-				)
-			);
-		}
-		_mm256_storeu_si256((__m256i *) MCU[n], X);
-	}
-}
+
 JPEG<YCbCr>::~JPEG(void)
 { }
 JPEG<YCbCr>::JPEG(void): X(0), Y(0)
@@ -205,7 +146,6 @@ JPEG<YCbCr>::JPEG(RC &&rc): X(0), Y(0)
 	};*/
 	struct HT { uint8_t NOS[16], SYM[ ]; };
 //	const *HT[8] = {nullptr};
-	uint8_t const *QT[4] = {nullptr};
 //	MSB stream(rc.data);
 
 	size_t pop_i(0u);
@@ -218,10 +158,11 @@ JPEG<YCbCr>::JPEG(RC &&rc): X(0), Y(0)
 # ifndef NDEBUG
 	char c_str[512] {'\0'};
 # endif
-	uint16_t L, M, RST = 0xFFFF;
+	uint16_t /*L, */M, RST = 0xFFFF;
 	int16_t Z=1, W=1;
+	uint8_t SS;
+	uint8_t Q[3][8][8]; // YCbCr
 	{
-		uint8_t SS;
 		const HT	*DHT[8] {nullptr};
 		const uint8_t	*DQT[4] {nullptr};
 		do switch( M = BIG16(pop(2)) )
@@ -260,31 +201,21 @@ JPEG<YCbCr>::JPEG(RC &&rc): X(0), Y(0)
 				for(uint8_t i=0; i<NOC; ++i)
 				{
 					uint8_t comp = *pop(1);
-					uint8_t SS = *pop(1);
+					/*uint8_t*/ ;
 					if(comp == 1) // Y
 					{
+						SS = *pop(1);
 						ASSERT(!(SS & 0xCC)); // 4:1:1
 //						[SS & 0x0F | SS >> 2];
-					# ifndef NDEBUG
-						switch(SS)
-						{
-							case 0x11: strcat(c_str, " 4:4:4 "); break; // 8x8
-							case 0x12: strcat(c_str, " 4:4:0 "); break;
-							case 0x21: strcat(c_str, " 4:2:2 "); break; // 16x8
-							case 0x22: strcat(c_str, " 4:2:0 "); break; // 16x16
-							case 0x41: strcat(c_str, " 4:1:1 "); break;
-							default: break;
-						}
-					# endif
-						L = (SS & 0x0F) * (SS >> 4);
+					/*	L = (SS & 0x0F) * (SS >> 4);
 						Z = (SS & 0x0F);
-						W = (SS >> 4);
+						W = (SS >> 4);*/
 					}
 					else
 					{
-						ASSERT(SS == 0x11);
+						ASSERT(*pop(1) == 0x11);
 					}
-					DQT[*pop(1)]; // #@?!
+					memcpy(Q[comp - 1], DQT[*pop(1)], sizeof(int16_t (&)[8][8])); // #@?!
 				# ifndef NDEBUG
 					if(comp > 5) comp = 0;
 					const char *C[ ] {"?", "Y", "Cb", "Cr", "I", "Q"};
@@ -431,46 +362,58 @@ JPEG<YCbCr>::JPEG(RC &&rc): X(0), Y(0)
 		}
 		while(M != 0xFFDA); // SOS
 	# ifndef NDEBUG
+		switch(SS)
+		{
+			case 0x11: strcat(c_str, " 4:4:4 "); break; // 8x8
+			case 0x12: strcat(c_str, " 4:4:0 "); break;
+			case 0x21: strcat(c_str, " 4:2:2 "); break; // 16x8
+			case 0x22: strcat(c_str, " 4:2:0 "); break; // 16x16
+			case 0x41: strcat(c_str, " 4:1:1 "); break;
+			default: break;
+		}
 		printf("%s", c_str);
 	# endif
 	}
 
-	if(L == 1)
-	{
-		int16_t MCU[8][8];
-	}
-	if(L == 2)
-	{
-		int16_t MCU[8][16];
-	}
-	if(L == 4)
-	{
-		int16_t MCU[16][16];
-	}
-
-	for(int i=0; i<L; ++i); // Y
-	for(int i=0; i<1; ++i); // Cb
-	for(int i=0; i<1; ++i); // Cr
 
 	RST;
-	for(int i=0; i<Y; i+=8)
-	for(int j=0; j<X; j+=8)
+	int16_t DPCM = 0;
+	for(int y=0; y<Y; y+=8)
+	for(int x=0; x<X; y+=8)
+	for(int C=0; C<3; C++)
 	// for n=0 n<comp ++n
 	{
-		int16_t coef[64] {0};
-		auto DC = [&](void){return 0;};
-		auto AC = [&](void){return 0;};
-		for(int k=0; k<64; ++k)
+		int8_t A[8][8];
+		// IDPCM
+		int (*DC)(int16_t, size_t) = [ ](int16_t X, size_t N){return X < 1<<N ? X-(2<<N)+1 : X;};
+		A[ZZ[0] >> 3][ZZ[0] & 7] = DPCM += DC(127, 7);
+		for(int n=1; n<64; ++n)
 		{
-			coef[ZZ[k]] = k ? AC( ) : DC( );
+			// IRLE
+			// TODO: decode bitwise huffman
+			int (*AC)(int8_t (&A)[8][8]) = [ ](int8_t (&A)[8][8]){return 0;};
+			A[ZZ[n] >> 3][ZZ[n] & 7] = AC(A);
 		}
-		// DCT
+		// IDCT
+		for(int S = 0; S < SS&0x0F^SS>>4; ++ S)
+		{
+			const int16_t (&COS16X)[8][8] = C&&SS&0x20? COS16LR[S%2]: COS16;
+			const int16_t (&COS16Y)[8][8] = C&&SS&0x02? COS16LR[S/2]: COS16;
+			for(int n = 0; n < 8; ++n)
+			{
+				__m128i X = _mm_setzero_si128( );
+				for(size_t i = 0; i < 8; ++ i)
+				{
+					__m128i Y = _mm_set1_epi16(COS16Y[i][n]);
+					for(size_t j = 0; j < 8; ++ j)
+					X = _mm_add_epi16(X, _mm_mulhi_epi16(_mm_set1_epi16(A[i][j] * Q[C][i][j]),
+						_mm_mulhi_epi16(Y, _mm_load_si128((const __m128i *) COS16X[j]))));
+				}
+				// TODO: find address from destination bitmap
+				_mm_storeu_si128(static_cast<__m128i *>(nullptr) + n, X);
+			}
+		}
 	}
-	do // it your own way
-	{
-		// DC
-		// AC[63]
-	} while(false);
 }
 JPEG<YCbCr>::JPEG(JPEG &&JPEG) noexcept: X(JPEG.X), Y(JPEG.Y)
 {
