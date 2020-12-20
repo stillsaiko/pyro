@@ -15,14 +15,10 @@ constexpr uint32_t BIG32(const char a[4])
 	^	static_cast<uint8_t>(a[2]) << 8
 	^	static_cast<uint8_t>(a[3]);
 }
-
-
-JPEG<YCbCr>::~JPEG(void)
-{ }
-JPEG<YCbCr>::JPEG(void): X(0), Y(0)
+JPEG<void>::JPEG(void): X(0), Y(0)
 { }
 # include <emmintrin.h> // SSE2
-JPEG<YCbCr>::JPEG(RC &&rc): X(0), Y(0)
+JPEG<void>::JPEG(RC &&rsrc, size_t Z, size_t align): X(0), Y(0), rsrc(static_cast<RC &&>(rsrc))
 {
 	constexpr uint8_t ZZ[64]
 	{
@@ -42,23 +38,8 @@ JPEG<YCbCr>::JPEG(RC &&rc): X(0), Y(0)
 		    067,076,
 		      077
 	};
-/*			     0x00,
-			  0x01, 0x08,
-		       0x10, 0x09, 0x02,
-		    0x03, 0x0A, 0x11, 0x18,
-		 0x20, 0x19, 0x12, 0x0B, 0x04,
-	      0x05, 0x0C, 0x13, 0x1A, 0x21, 0x28,
-	   0x30, 0x29, 0x22, 0x1B, 0x14, 0x0D, 0x06,
-	0x07, 0x0E, 0x15, 0x1C, 0x23, 0x2A, 0x31, 0x38,
-	   0x39, 0x32, 0x2B, 0x24, 0x1D, 0x16, 0x0F,
-	      0x17, 0x1E, 0x25, 0x2C, 0x33, 0x3A,
-		 0x3B, 0x34, 0x2D, 0x26, 0x1F,
-		    0x27, 0x2E, 0x35, 0x3C,
-		       0x3D, 0x36, 0x2F,
-			  0x37, 0x3E,
-			     0x3F*/
 //	for(int i=0; i<64; ++i) QT[ZZ[i]];
-	alignas(16) constexpr int16_t COS16[8][8]
+	alignas(16) constexpr int16_t COS16[3][8][8]
 	{
 		32767, 32767, 32767, 32767, 32767, 32767, 32767, 32767,
 		32138, 27245, 18204, 6392, -6392, -18204, -27245, -32138,
@@ -67,10 +48,7 @@ JPEG<YCbCr>::JPEG(RC &&rc): X(0), Y(0)
 		23170, -23170, -23170, 23170, 23170, -23170, -23170, 23170,
 		18204, -32138, 6392, 27245, -27245, -6392, 32138, -18204,
 		12539, -30273, 30273, -12539, -12539, 30273, -30273, 12539,
-		6392, -18204, 27245, -32138, 32138, -27245, 18204, -6392
-	};
-	alignas(16) constexpr int16_t COS16LR[2][8][8]
-	{
+		6392, -18204, 27245, -32138, 32138, -27245, 18204, -6392,
 		// COS16L
 		32767, 32767, 32767, 32767, 32767, 32767, 32767, 32767,
 		32610, 31357, 28898, 25330, 20787, 15446, 9512, 3211,
@@ -82,68 +60,50 @@ JPEG<YCbCr>::JPEG(RC &&rc): X(0), Y(0)
 		25330, -15446, -31357, 3211, 32610, 9512, -28898, -20787,
 		// COS16R
 		32767, 32767, 32767, 32767, 32767, 32767, 32767, 32767,
-		-3211, - 9512, -15446, -20787, -25330, -28898, -31357, -32610,
+		-3211, -9512, -15446, -20787, -25330, -28898, -31357, -32610,
 		-32138, -27245, -18204, -6392, 6392, 18204, 27245, 32138,
 		9512, 25330, 32610, 28898, 15446, -3211, -20787, -31357,
 		30273, 12539, -12539, -30273, -30273, -12539, 12539, 30273,
-		-15446, -32610, -20787, 9512, 31357, 25329, - 3211, -28898,
-		-27245, 6392, 32138, 18204, -18204, -32138, - 6392, +27245,
+		-15446, -32610, -20787, 9512, 31357, 25329, -3211, -28898,
+		-27245, 6392, 32138, 18204, -18204, -32138, -6392, 27245,
 		20787, 28898, -9512, -32610, -3211, 31357, 15446, -25329
 	};
 
-	const char *p = static_cast<const char *>(rc.data);
-	size_t n = 0;
 
 	// DC huff -> bitcount
 	// variable-size amplitude -> DC quantization
 	// RLE -> ZZ -> AC huff amplitude -> AC quantization
-
-
-/*	struct MSB
+	
+	struct
 	{
-		const char *p = nullptr;
-		size_t n = 0;
-		MSB(const char *data) : p(data)
-		{ }
-		uint16_t peek(size_t size_t)
-		{
-			assert(size_t <= 16);
-			return *p;
-		}
-		void operator +=(size_t size_t)
-		{
-			p += (n + size_t) / 8 - size_t / 8;
-			n += size_t;
-		}
-		uint16_t seek(size_t size_t)
-		{
-			assert(size_t <= 16);
-			uint16_t bits = peek(size_t);
-			operator +=(size_t);
-			return bits;
-		}
-	};*/
-	struct HT { uint8_t NOS[16], SYM[ ]; };
-//	const *HT[8] = {nullptr};
-//	MSB stream(rc.data);
+		const uint8_t *HT[2] = { };
+		const uint8_t *QT = nullptr;
+		int16_t DC = 0; // DPCM
+		uint8_t SS = 0;
+	//	int16_t A[64];
+	} CCC[3];
 
-	size_t pop_i(0u);
-	auto pop = [&](size_t n)
-	{
-		const char *p = &rc[pop_i];
-		pop_i += n;
-		return p;
-	};
+//	const uint8_t (*QT[3])[8] { };
+//	const uint8_t (*HT[3][2]) { };
+
+	const char *byte = &rsrc[0];
+	// bytewise
 # ifndef NDEBUG
 	char c_str[512] {'\0'};
 # endif
-	uint16_t /*L, */M, RST = 0xFFFF;
-	int16_t Z=1, W=1;
-	uint8_t SS;
-	uint8_t Q[3][8][8]; // YCbCr
+//	int16_t Q[2][8][8]; // YCbCr
+//	uint8_t SS;
+	uint16_t RST = 0xFFFF;
+	uint8_t NOC;
 	{
-		const HT	*DHT[8] {nullptr};
-		const uint8_t	*DQT[4] {nullptr};
+		auto pop = [&](size_t n)
+		{
+			return (byte += n) - n;
+		};
+		uint16_t M;
+		const char *DQT[4];
+		const char *DHT[8];
+//		if(!ASSERT(BIG16(pop(2)) == 0xFFD8)) return; // SOI
 		do switch( M = BIG16(pop(2)) )
 		{
 			case 0xFFCF: // SOF15 Lossless (differential arithmetic)
@@ -163,19 +123,21 @@ JPEG<YCbCr>::JPEG(RC &&rc): X(0), Y(0)
 			{
 				uint16_t size = BIG16(pop(2));
 				ASSERT(size == 17 || size == 11);
-				pop(1); // This is in bits/sample, usually 8 (12 and 16 not supported by most software).
+				ASSERT(*pop(1) == 8); // 8-bit precision
 				const_cast<uint16_t &>(Y) = BIG16(pop(2));
 				const_cast<uint16_t &>(X) = BIG16(pop(2));
-				uint8_t NOC = *pop(1);
+				NOC = *pop(1);
 				ASSERT(NOC == 3 || NOC == 1);
 				for(uint8_t i=0; i<NOC; ++i)
 				{
 					uint8_t comp = *pop(1);
-					if(comp == 1) SS = *pop(1), ASSERT(!(SS & 0xCC)); // 4:1:1
-					else ASSERT(*pop(1) == 0x11);
-					memcpy(Q[comp - 1], DQT[*pop(1)], sizeof(int16_t (&)[8][8])); // #@?!
+					ASSERT(1 <= comp && comp <= 3);
+				//	if(comp == 1) SS = *pop(1), ASSERT(!(SS & 0xCC)); // 4:1:1
+				//	else ASSERT(*pop(1) == 0x11);
+					CCC[comp - 1].SS = *pop(1);
+				//	QT[comp - 1] = (uint8_t (*)[8]) DQT[*pop(1)];
+					CCC[comp - 1].QT = (const uint8_t *) DQT[*pop(1)];
 				# ifndef NDEBUG
-					if(comp > 5) comp = 0;
 					const char *C[ ] {"?", "Y", "Cb", "Cr", "I", "Q"};
 					strcat(c_str, C[comp]);
 				# endif
@@ -190,20 +152,11 @@ JPEG<YCbCr>::JPEG(RC &&rc): X(0), Y(0)
 				{
 					uint8_t info = *pop(1);
 					ASSERT((info & 0b11101100) == 0);
-					DHT[info >> 2 | info & 0x00000111] = reinterpret_cast<const HT *>(pop(16));
-					NOS = 0;
-					for(int i=0; i<16; ++i) NOS += DHT[info >> 2 | info & 0x00000111]->NOS[i];
-	//				const uint8_t *sym = (const uint8_t *)
+					DHT[info >> 2 | info & 0x00000111] = pop(16);
+					for(int i=0; i<16; ++i)
+					NOS += (uint8_t) DHT[info >> 2 | info & 0x00000111][i];
 					pop(NOS);
 				}
-//				for(int i=0; i<NOS; ++i)
-//				assert(sym[i] == DHT[info >> 2 | info & 0x00000111]->SYM[i]);
-/*				if(NOS < size - sizeof size + sizeof info + 16)
-				{
-					printf("warning: DHT +%i\n", size - sizeof size - sizeof info - 16 - NOS);
-				}
-				printf(" {%u/%u}", NOS, size - sizeof size - sizeof info - 16);
-				assert(size == sizeof size + sizeof info + 16 + NOS);*/
 				continue;
 			}
 			case 0xFFD8: // SOI
@@ -214,15 +167,20 @@ JPEG<YCbCr>::JPEG(RC &&rc): X(0), Y(0)
 			case 0xFFDA: // SOS
 			{
 				uint16_t size = BIG16(pop(2));
-//				printf("(SOS %hu)", size);
-				uint8_t comp = *pop(1);
-				ASSERT(comp == 3 || comp == 1);
-				if(comp == 1) ASSERT(size == 8); // Y
-				if(comp == 3) ASSERT(size == 12); // YCbCr
-			//	assert(p[0] == 1 && p[2] == 2 && p[4] == 3);
-			/*	p[1], p[3], p[5]; // comp -> HT
-				p += 9;*/
-				pop(2*comp+3);
+				ASSERT(NOC == *pop(1));
+				if(NOC == 1) ASSERT(size == 8); // Y
+				if(NOC == 3) ASSERT(size == 12); // YCbCr
+				for(uint8_t i=0; i<NOC; ++i)
+				{
+					uint8_t comp = *pop(1);
+					ASSERT(1 <= comp && comp <= 3);
+					uint8_t huff = *pop(1);
+				//	HT[comp - 1][0] = (const uint8_t *) DHT[0 ^ huff >> 4];
+					CCC[comp - 1].HT[0] = (const uint8_t *) DHT[0 ^ huff >> 4];
+				//	HT[comp - 1][1] = (const uint8_t *) DHT[8 ^ huff & 15];
+					CCC[comp - 1].HT[1] = (const uint8_t *) DHT[8 ^ huff & 15];
+				}
+				pop(3); // ignore
 				continue;
 			}
 			case 0xFFDB: // DQT
@@ -232,8 +190,8 @@ JPEG<YCbCr>::JPEG(RC &&rc): X(0), Y(0)
 				for(int i=2; i<size; i+=65)
 				{
 					uint8_t info = *pop(1);
-					ASSERT((info & 0b11111100) == 0);
-					DQT[info & 0b00000011] = reinterpret_cast<const uint8_t *>(pop(64));
+					ASSERT(!(info & 0b1100)); // 8-bit precision
+					DQT[info & 0b00000011] = pop(64);
 				}
 				continue;
 			}
@@ -320,7 +278,8 @@ JPEG<YCbCr>::JPEG(RC &&rc): X(0), Y(0)
 		}
 		while(M != 0xFFDA); // SOS
 	# ifndef NDEBUG
-		switch(SS)
+	//	switch(SS)
+		switch(CCC[0].SS)
 		{
 			case 0x11: strcat(c_str, " 4:4:4 "); break; // 8x8
 			case 0x12: strcat(c_str, " 4:4:0 "); break;
@@ -332,20 +291,132 @@ JPEG<YCbCr>::JPEG(RC &&rc): X(0), Y(0)
 		printf("%s", c_str);
 	# endif
 	}
+	// bitwise
+	size_t bits = 0;
+	size_t size = 0;
+	auto peek = [&](size_t count) -> uint16_t
+	{
+		while(size < count) bits <<= 8, bits |= (uint8_t) *byte++, size += 8;
+		return bits >> size-count & (1 << count)-1;
+	};
+	auto pop = [&](size_t count) -> uint16_t
+	{
+		while(size < count) bits <<= 8, bits |= (uint8_t) *byte++, size += 8;
+		return size -= count, bits >> size & (1 << count)-1;
+	};
+	auto huff = [&](const uint8_t *H) -> uint8_t
+	{
+		const uint8_t *sym = &H[16];
+		size_t k = 1;
+		size_t n = 1;
+		for(int i=0; i<16; ++i)
+		{
+			k <<= 1;
+			n <<= 1;
+			uint16_t bits = peek(i + 1);
+			for(int j=0; j < H[i]; ++j)
+			if(bits == k - n + j) return pop(i + 1), *sym;
+			else ++sym;
+			n -= H[i];
+		}
+		return ERROR("no matching huffman code");
+	};
+	auto ampl = [&](uint16_t N) -> uint16_t
+	{
+		uint16_t X = pop(N);
+		return X<<1 < 1<<N ? X-(1<<N)+1 : X; // X<<1 < 1<<N ? -((1<<N) + ~X) : X;
+	};
 
-	YCbCr *pixels = static_cast<YCbCr *>(malloc(sizeof(YCbCr)*X*Y));
-
+	char *mem = static_cast<char *>(malloc(X*Y*Z));
+	auto DCT = [&NOC]()
+	{
+		for(int k=0; k<NOC; ++k)	;
+	};
 	RST;
-	int16_t DPCM = 0;
-	for(int y=0; y<Y; y+=8)
-	for(int x=0; x<X; y+=8)
-	for(int C=0; C<3; C++)
+	int16_t DPCM[3] { };
+	for(int y=0; y<Y; y+=(CCC[0].SS&0x0F)<<3)
+	for(int x=0; x<X; x+=(CCC[0].SS&0xF0)>>1)
+	{
+	//	int16_t A[3][64];
+		int16_t (*AAA[3])[64] { };
+		for(int h=0; h<NOC; ++h) // malloc
+		AAA[h] = new int16_t[(CCC[h].SS&0x0F)*(CCC[h].SS>>4)][64];
+
+		for(int h=0; h<NOC; ++h)
+		for(int i=0; i<CCC[h].SS&0x0F; i+=0x01)
+		for(int j=0; j<CCC[h].SS&0xF0; j+=0x10)
+		{
+			int k = 0;
+			int16_t *A = AAA[h][2*i+j/0x10];
+			A[ZZ[k++]] = CCC[h].DC += ampl(huff(CCC[h].HT[0]));
+			while(k < 64)
+			if(uint16_t N = huff(CCC[h].HT[1]))
+			{
+				while(N & 0xF0) // RLE
+				A[ZZ[k++]] = 0, N -= 0x10;
+				A[ZZ[k++]] = ampl(N);
+			}
+			else // EOB
+			{
+				while(k < 64)
+				A[ZZ[k++]] = 0;
+			}
+		}
+
+		for(int i=0; i<CCC[0].SS&0x0F; i+=0x01)
+		for(int n=0; n<8; ++n)
+		for(int j=0; j<CCC[0].SS&0xF0; j+=0x10)
+		{
+			int16_t MCU[3][8];
+			for(int h=0; h<NOC; ++h)
+			{
+				int16_t *A = AAA[h][CCC[h].SS/CCC[0].SS*(2*i+j/0x10)];
+				const int16_t (*COS16Y)[8] = COS16[((CCC[0].SS&15)/(CCC[h].SS&15)-1)*(i/0x01+1)];
+				const int16_t (*COS16X)[8] = COS16[((CCC[0].SS>>4)/(CCC[h].SS>>4)-1)*(j/0x10+1)];
+				// IDCT
+				__m128i xmm0 = _mm_setzero_si128( );
+				for(size_t i = 0; i < 8; ++ i)
+				{
+					__m128i xmm1 = _mm_set1_epi16(COS16Y[i][n]);
+					for(size_t j = 0; j < 8; ++ j)
+					xmm0 = _mm_add_epi16(
+						xmm0, _mm_mulhi_epi16(
+							_mm_set1_epi16(A[8*i+j] * CCC[h].QT[8*i+j]),
+							_mm_mulhi_epi16(
+								xmm1, _mm_load_si128((const __m128i *) COS16X[j])
+							)
+						)
+					);
+				}
+				_mm_storeu_si128((__m128i *) MCU[h], xmm0);
+			}
+			constexpr int16_t (*RGB[3])(int16_t Y, int16_t Cb, int16_t Cr)
+			{
+				[ ](int16_t Y, int16_t Cb, int16_t Cr) -> int16_t {return Y + 1.402 * (Cr - 32768);},
+				[ ](int16_t Y, int16_t Cb, int16_t Cr) -> int16_t {return Y - 0.344136 * (Cb - 32768)
+									- 0.714136 * (Cr - 32768);},
+				[ ](int16_t Y, int16_t Cb, int16_t Cr) -> int16_t {return Y + 1.772 * (Cb - 32768);}
+			};
+			for(int m=0; m<8; ++m)
+			if(Z == align)
+			{
+				// ...
+			}
+			else
+			{
+				for(int o=0; o<Z; o+=align) // 16-bit #@?!
+				mem[Z*(X*y+x)+0] = RGB[o/align](MCU[0][m], MCU[1][m], MCU[2][m]);
+			}
+		}
+		for(int h=0; h<NOC; ++h) delete[ ] AAA[h]; // free
+	}
 	// for n=0 n<comp ++n
 	{
+//		enum YCbCr {Y, Cb, Cr};
 		int8_t A[8][8];
 		// IDPCM
 		// TODO: decode bitwise DC huffman
-		int (*DC)(int16_t, size_t) = [ ](int16_t X, size_t N){return X < 1<<N ? X-(2<<N)+1 : X;};
+		int (*DC)(int16_t, size_t) = [ ](int16_t X, size_t N){return X<<1 < 1<<N ? X-(1<<N)+1 : X;}; // X<<1 < 1<<N ? -((1<<N) + ~X) : X;
 		A[ZZ[0] >> 3][ZZ[0] & 7] = DPCM += DC(127, 7);
 		for(int n=1; n<64; ++n)
 		{
@@ -356,44 +427,73 @@ JPEG<YCbCr>::JPEG(RC &&rc): X(0), Y(0)
 		}
 		// IDCT
 		// pragma warning (suppress: 6281)
-		for(int S = 0; S < (SS&0x0F^SS>>4); ++ S)
+		for(YCbCr comp = Y; comp <= Cr; comp = static_cast<YCbCr>(comp + 1))
+		for(int S = 0; S < (SS&0x0F)*(SS>>4); ++ S)
+		for(int line = 0; line < 8; ++ line)
 		{
-			const int16_t (*COS16X)[8] = C&&SS&0x20? COS16LR[S%2]: COS16;
-			const int16_t (*COS16Y)[8] = C&&SS&0x02? COS16LR[S/2]: COS16;
-			for(int n = 0; n < 8; ++n)
+			union
 			{
-				__m128i X = _mm_setzero_si128( );
+				__m128i si128;
+				int16_t epi16[8];
+			} m128i;
+			[&m128i, &A, &Q, line, comp](const int16_t (*COS16X)[8], const int16_t (*COS16Y)[8])
+			{
+				__m128i XMM0 = _mm_setzero_si128( );
 				for(size_t i = 0; i < 8; ++ i)
 				{
-					__m128i Y = _mm_set1_epi16(COS16Y[i][n]);
+					__m128i XMM1 = _mm_set1_epi16(COS16Y[i][line]);
 					for(size_t j = 0; j < 8; ++ j)
-					X = _mm_add_epi16(X, _mm_mulhi_epi16(_mm_set1_epi16(A[i][j] * Q[C][i][j]),
-						_mm_mulhi_epi16(Y, _mm_load_si128((const __m128i *) COS16X[j]))));
+					XMM0 = _mm_add_epi16(XMM0, _mm_mulhi_epi16(_mm_set1_epi16(A[i][j] * Q[comp][i][j]),
+						_mm_mulhi_epi16(XMM1, _mm_load_si128((const __m128i *) COS16X[j]))));
 				}
+				_mm_storeu_si128(&m128i.si128, XMM0);
+			}
+			(comp&&SS&0x20? COS16_2[S%2]: COS16, comp&&SS&0x02? COS16_2[S/2]: COS16);
+			switch(comp)
+			{
+			case Y:
+				for(int i=0; i<8; ++i)
 				// TODO: find address from destination bitmap
-				_mm_storeu_si128(static_cast<__m128i *>(nullptr) + n, X);
+					mem[3*i+0] = m128i.epi16[i],
+					mem[3*i+1] = m128i.epi16[i],
+					mem[3*i+2] = m128i.epi16[i];
+				break;
+			case Cb:
+				for(int i=0; i<8; ++i)
+				// TODO: find address from destination bitmap
+					mem[3*i+1] -= m128i.epi16[i] / 2,
+					mem[3*i+2] += m128i.epi16[i];
+				break;
+			case Cr:
+				for(int i=0; i<8; ++i)
+				// TODO: find address from destination bitmap
+					mem[3*i+0] += m128i.epi16[i],
+					mem[3*i+1] -= m128i.epi16[i] / 2;
+				break;
 			}
 		}
 	}
-	rsrc = RC(free, pixels, sizeof(YCbCr)*X*Y);
+	rsrc = RC(free, mem, size*X*Y);
 }
-JPEG<YCbCr>::JPEG(JPEG &&JPEG) noexcept: X(JPEG.X), Y(JPEG.Y)
+// noexcept
+JPEG<void>::~JPEG(void) noexcept
 {
-/*	memcpy(this, &JPEG, sizeof JPEG);
-	memset(&JPEG, 0, sizeof JPEG);*/
+	rsrc = { };
+}
+JPEG<void>::JPEG(JPEG &&JPEG) noexcept: X(JPEG.X), Y(JPEG.Y)
+{
 	rsrc = static_cast<RC &&>(JPEG.rsrc);
 	memset(&JPEG, 0, sizeof JPEG);
 }
-void JPEG<YCbCr>::operator = (JPEG &&JPEG) noexcept
+void JPEG<void>::operator =(JPEG &&JPEG) noexcept
 {
-/*	JPEG::~JPEG( );
-	memcpy(this, &JPEG, sizeof JPEG);
-	memset(&JPEG, 0, sizeof JPEG);*/
 	const_cast<uint16_t &>(X) = JPEG.X;
 	const_cast<uint16_t &>(Y) = JPEG.Y;
 	rsrc = static_cast<RC &&>(JPEG.rsrc);
 	memset(&JPEG, 0, sizeof JPEG);
-/*	const_cast<uint16_t &>(X) = J.X;
-	const_cast<uint16_t &>(Y) = J.Y;
-	rsrc = static_cast<RC &&>(J.rsrc);*/
+}
+// const
+const void *JPEG<void>::operator *(void) const
+{
+	return rsrc.data;
 }
