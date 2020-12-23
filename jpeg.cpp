@@ -39,7 +39,7 @@ JPEG<void>::JPEG(RC &&rsrc, size_t Z, size_t align): X(0), Y(0), rsrc(static_cas
 		      077
 	};
 //	for(int i=0; i<64; ++i) QT[ZZ[i]];
-	alignas(16) constexpr int16_t COS16[3][8][8]
+	constexpr int16_t COS16[8][8]
 	{
 		32767, 32767, 32767, 32767, 32767, 32767, 32767, 32767,
 		32138, 27245, 18204, 6392, -6392, -18204, -27245, -32138,
@@ -49,6 +49,9 @@ JPEG<void>::JPEG(RC &&rsrc, size_t Z, size_t align): X(0), Y(0), rsrc(static_cas
 		18204, -32138, 6392, 27245, -27245, -6392, 32138, -18204,
 		12539, -30273, 30273, -12539, -12539, 30273, -30273, 12539,
 		6392, -18204, 27245, -32138, 32138, -27245, 18204, -6392,
+	};
+	constexpr int16_t COS16_2[2][8][8]
+	{
 		// COS16L
 		32767, 32767, 32767, 32767, 32767, 32767, 32767, 32767,
 		32610, 31357, 28898, 25330, 20787, 15446, 9512, 3211,
@@ -326,151 +329,195 @@ JPEG<void>::JPEG(RC &&rsrc, size_t Z, size_t align): X(0), Y(0), rsrc(static_cas
 		uint16_t X = pop(N);
 		return X<<1 < 1<<N ? X-(1<<N)+1 : X; // X<<1 < 1<<N ? -((1<<N) + ~X) : X;
 	};
-
-	char *mem = static_cast<char *>(malloc(X*Y*Z));
-	auto DCT = [&NOC]()
+	auto decode = [&](auto& C, short (&AA)[8][8])
 	{
-		for(int k=0; k<NOC; ++k)	;
+		int k = 0;
+		int16_t *A = (short *) &AA[0][0];
+		A[ZZ[k++]] = C.DC += ampl(huff(C.HT[0]));
+		while(k < 64)
+		if(uint16_t N = huff(C.HT[1]))
+		{
+			while(N & 0xF0) // RLE
+			A[ZZ[k++]] = 0, N -= 0x10;
+			A[ZZ[k++]] = ampl(N);
+		}
+		else // EOB
+		{
+			while(k < 64)
+			A[ZZ[k++]] = 0;
+		}
 	};
+	char *mem = static_cast<char *>(malloc(X*Y*Z));
 	RST;
 	int16_t DPCM[3] { };
 	for(int y=0; y<Y; y+=(CCC[0].SS&0x0F)<<3)
 	for(int x=0; x<X; x+=(CCC[0].SS&0xF0)>>1)
 	{
-	//	int16_t A[3][64];
-		int16_t (*AAA[3])[64] { };
-		for(int h=0; h<NOC; ++h) // malloc
-		AAA[h] = new int16_t[(CCC[h].SS&0x0F)*(CCC[h].SS>>4)][64];
-
-		for(int h=0; h<NOC; ++h)
-		for(int i=0; i<CCC[h].SS&0x0F; i+=0x01)
-		for(int j=0; j<CCC[h].SS&0xF0; j+=0x10)
+		__m128i R[2][2][8];
+		for(short i = 0; i < (CCC[0].SS&0x0F); ++ i)
+		for(short j = 0; j < (CCC[0].SS>>4); ++ j)
 		{
-			int k = 0;
-			int16_t *A = AAA[h][2*i+j/0x10];
-			A[ZZ[k++]] = CCC[h].DC += ampl(huff(CCC[h].HT[0]));
-			while(k < 64)
-			if(uint16_t N = huff(CCC[h].HT[1]))
+			// huffman decode: luminance (Y)
+			short Y[8][8] { };
+			decode(CCC[0], Y);
+			// color accumulate: luminance (Y)
+			for(int n = 0; n < 8; ++ n)
 			{
-				while(N & 0xF0) // RLE
-				A[ZZ[k++]] = 0, N -= 0x10;
-				A[ZZ[k++]] = ampl(N);
-			}
-			else // EOB
-			{
-				while(k < 64)
-				A[ZZ[k++]] = 0;
-			}
-		}
-
-		for(int i=0; i<CCC[0].SS&0x0F; i+=0x01)
-		for(int n=0; n<8; ++n)
-		for(int j=0; j<CCC[0].SS&0xF0; j+=0x10)
-		{
-			int16_t MCU[3][8];
-			for(int h=0; h<NOC; ++h)
-			{
-				int16_t *A = AAA[h][CCC[h].SS/CCC[0].SS*(2*i+j/0x10)];
-				const int16_t (*COS16Y)[8] = COS16[((CCC[0].SS&15)/(CCC[h].SS&15)-1)*(i/0x01+1)];
-				const int16_t (*COS16X)[8] = COS16[((CCC[0].SS>>4)/(CCC[h].SS>>4)-1)*(j/0x10+1)];
-				// IDCT
 				__m128i xmm0 = _mm_setzero_si128( );
-				for(size_t i = 0; i < 8; ++ i)
+				for(int i = 0; i < 8; ++ i)
 				{
-					__m128i xmm1 = _mm_set1_epi16(COS16Y[i][n]);
-					for(size_t j = 0; j < 8; ++ j)
-					xmm0 = _mm_add_epi16(
-						xmm0, _mm_mulhi_epi16(
-							_mm_set1_epi16(A[8*i+j] * CCC[h].QT[8*i+j]),
-							_mm_mulhi_epi16(
-								xmm1, _mm_load_si128((const __m128i *) COS16X[j])
-							)
-						)
-					);
+					__m128i xmm1 = _mm_set1_epi16(COS16[i][n]);
+					for(int j = 0; j < 8; ++ j)
+					 xmm0 = _mm_add_epi16(xmm0, _mm_mulhi_epi16(_mm_set1_epi16(Y[i][j]),
+						_mm_mulhi_epi16(xmm1, _mm_loadu_si128((__m128i *) COS16[j])) ));
 				}
-				_mm_storeu_si128((__m128i *) MCU[h], xmm0);
-			}
-			constexpr int16_t (*RGB[3])(int16_t Y, int16_t Cb, int16_t Cr)
-			{
-				[ ](int16_t Y, int16_t Cb, int16_t Cr) -> int16_t {return Y + 1.402 * (Cr - 32768);},
-				[ ](int16_t Y, int16_t Cb, int16_t Cr) -> int16_t {return Y - 0.344136 * (Cb - 32768)
-									- 0.714136 * (Cr - 32768);},
-				[ ](int16_t Y, int16_t Cb, int16_t Cr) -> int16_t {return Y + 1.772 * (Cb - 32768);}
-			};
-			for(int m=0; m<8; ++m)
-			if(Z == align)
-			{
-				// ...
-			}
-			else
-			{
-				for(int o=0; o<Z; o+=align) // 16-bit #@?!
-				mem[Z*(X*y+x)+0] = RGB[o/align](MCU[0][m], MCU[1][m], MCU[2][m]);
+				R[i][j][n] = _mm_add_epi16(xmm0, _mm_set1_epi16(INT16_MIN));
 			}
 		}
-		for(int h=0; h<NOC; ++h) delete[ ] AAA[h]; // free
-	}
-	// for n=0 n<comp ++n
-	{
-//		enum YCbCr {Y, Cb, Cr};
-		int8_t A[8][8];
-		// IDPCM
-		// TODO: decode bitwise DC huffman
-		int (*DC)(int16_t, size_t) = [ ](int16_t X, size_t N){return X<<1 < 1<<N ? X-(1<<N)+1 : X;}; // X<<1 < 1<<N ? -((1<<N) + ~X) : X;
-		A[ZZ[0] >> 3][ZZ[0] & 7] = DPCM += DC(127, 7);
-		for(int n=1; n<64; ++n)
+		__m128i G[2][2][8];
+		__m128i B[2][2][8];
+		if(NOC >= 3)
 		{
-			// IRLE
-			// TODO: decode bitwise RLE ZZ AC huffman
-			int (*AC)(int8_t (&A)[8][8]) = [ ](int8_t (&A)[8][8]){return 0;};
-			A[ZZ[n] >> 3][ZZ[n] & 7] = AC(A);
-		}
-		// IDCT
-		// pragma warning (suppress: 6281)
-		for(YCbCr comp = Y; comp <= Cr; comp = static_cast<YCbCr>(comp + 1))
-		for(int S = 0; S < (SS&0x0F)*(SS>>4); ++ S)
-		for(int line = 0; line < 8; ++ line)
-		{
-			union
+			// huffman decode: chrominance (Cb)
+			short Cb[8][8] { };
+			decode(CCC[1], Cb);
+			// huffman decode: chrominance (Cr)
+			short Cr[8][8] { };
+			decode(CCC[2], Cr);
+			// color accumulate: chrominance (Cb, Cr)
+			for(int i = 0; i < (CCC[0].SS&15); ++ i)
+			for(int j = 0; j < (CCC[0].SS>>4); ++ j)
 			{
-				__m128i si128;
-				int16_t epi16[8];
-			} m128i;
-			[&m128i, &A, &Q, line, comp](const int16_t (*COS16X)[8], const int16_t (*COS16Y)[8])
-			{
-				__m128i XMM0 = _mm_setzero_si128( );
-				for(size_t i = 0; i < 8; ++ i)
+				const short (*COS16i)[8] = CCC[0].SS&0x02 ? COS16_2[i] : COS16;
+				const short (*COS16j)[8] = CCC[0].SS&0x20 ? COS16_2[j] : COS16;
+				for(int n = 0; n < 8; ++ n)
 				{
-					__m128i XMM1 = _mm_set1_epi16(COS16Y[i][line]);
-					for(size_t j = 0; j < 8; ++ j)
-					XMM0 = _mm_add_epi16(XMM0, _mm_mulhi_epi16(_mm_set1_epi16(A[i][j] * Q[comp][i][j]),
-						_mm_mulhi_epi16(XMM1, _mm_load_si128((const __m128i *) COS16X[j]))));
+					G[i][j][n] = R[i][j][n];
+					B[i][j][n] = R[i][j][n];
+					__m128i xmm0 = _mm_setzero_si128( );
+					__m128i xmm1 = _mm_setzero_si128( );
+					for(int i = 0; i < 8; ++ i)
+					{
+						__m128i xmm2 = _mm_set1_epi16(COS16i[i][n]);
+						for(int j = 0; j < 8; ++ j)
+						{
+							__m128i xmm3 = _mm_mulhi_epi16(xmm2, _mm_loadu_si128((__m128i *) COS16j[j]));
+							xmm0 = _mm_add_epi16(xmm0, _mm_mulhi_epi16(_mm_set1_epi16(Cb[i][j]), xmm3));
+							xmm1 = _mm_add_epi16(xmm1, _mm_mulhi_epi16(_mm_set1_epi16(Cr[i][j]), xmm3));
+						}
+					}
+					R[i][j][n] = _mm_add_epi16(R[i][j][n], xmm0);
+					G[i][j][n] = _mm_sub_epi16(G[i][j][n], xmm0);
+					G[i][j][n] = _mm_sub_epi16(G[i][j][n], xmm1);
+					B[i][j][n] = _mm_add_epi16(B[i][j][n], xmm1);
 				}
-				_mm_storeu_si128(&m128i.si128, XMM0);
 			}
-			(comp&&SS&0x20? COS16_2[S%2]: COS16, comp&&SS&0x02? COS16_2[S/2]: COS16);
-			switch(comp)
+		}
+		switch(Z/align)
+		{
+		case 1: // RRRRRRRR
+			if(align == sizeof(char))
+			for(int i = 0; i < (CCC[0].SS&0x0F); ++ i)
+			for(int n = 0; n < 8; ++ n)
 			{
-			case Y:
-				for(int i=0; i<8; ++i)
-				// TODO: find address from destination bitmap
-					mem[3*i+0] = m128i.epi16[i],
-					mem[3*i+1] = m128i.epi16[i],
-					mem[3*i+2] = m128i.epi16[i];
-				break;
-			case Cb:
-				for(int i=0; i<8; ++i)
-				// TODO: find address from destination bitmap
-					mem[3*i+1] -= m128i.epi16[i] / 2,
-					mem[3*i+2] += m128i.epi16[i];
-				break;
-			case Cr:
-				for(int i=0; i<8; ++i)
-				// TODO: find address from destination bitmap
-					mem[3*i+0] += m128i.epi16[i],
-					mem[3*i+1] -= m128i.epi16[i] / 2;
-				break;
+				_mm_packs_epi16(_mm_srli_epi16(R[i][0][n], 8), CCC[0].SS & 0x20
+					?	_mm_srli_epi16(R[i][1][n], 8)
+					:	_mm_setzero_si128( ) ); // _mm_storeu_epi128
+				x = 0, y += 10;
 			}
+			if(align == sizeof(short))
+			for(int i = 0; i < (CCC[0].SS&0x0F); ++ i)
+			for(int n = 0; n < 8; ++ n)
+			{
+				for(int j = 0; j < (CCC[0].SS>>4); ++ j)
+				{
+					R[i][j][n]; // _mm_storeu_epi128
+				}
+				x = 0, y += 10;
+			}
+			continue;
+		case 2: // RGRGRGRG RGRGRGRG
+			if(align == sizeof(char))
+			for(int i = 0; i < (CCC[0].SS&0x0F); ++ i)
+			for(int n = 0; n < 8; ++ n)
+			{
+				for(int j = 0; j < (CCC[0].SS>>4); ++ j)
+				{
+					_mm_packs_epi16(_mm_srli_epi16(_mm_unpacklo_epi16(R[i][j][n], G[i][j][n]), 8),
+							_mm_srli_epi16(_mm_unpackhi_epi16(R[i][j][n], G[i][j][n]), 8)); // _mm_storeu_epi128
+				}
+				x = 0, y += 10;
+			}
+			if(align == sizeof(short))
+			for(int i = 0; i < (CCC[0].SS&0x0F); ++ i)
+			for(int n = 0; n < 8; ++ n)
+			{
+				for(int j = 0; j < (CCC[0].SS>>4); ++ j)
+				{
+					_mm_unpacklo_epi16(R[i][j][n], G[i][j][n]); // _mm_storeu_epi128
+					_mm_unpackhi_epi16(R[i][j][n], G[i][j][n]); // _mm_storeu_epi128
+				}
+				x = 0, y += 10;
+			}
+		case 3: // !RGB
+			if(align == sizeof(char))
+			for(int i = 0; i < (CCC[0].SS&0x0F); ++ i)
+			for(int n = 0; n < 8; ++ n)
+			{
+				for(int j = 0; j < (CCC[0].SS>>4); ++ j)
+				{
+					char RGB[3][8]; // memcpy
+				}
+				x = 0, y += 10;
+			}
+			if(align == sizeof(short));
+			for(int i = 0; i < (CCC[0].SS&0x0F); ++ i)
+			for(int n = 0; n < 8; ++ n)
+			{
+				for(int j = 0; j < (CCC[0].SS>>4); ++ j)
+				{
+					short RGB[3][8]; // memcpy
+				}
+				x = 0, y += 10;
+			}
+			continue;
+		case 4: // RGBARGBA RGBARGBA RGBARGBA RGBARGBA
+			__m128i xmm0, xmm1;
+			if(align == sizeof(char))
+			for(int i = 0; i < (CCC[0].SS&0x0F); ++ i)
+			for(int n = 0; n < 8; ++ n)
+			{
+				for(int j = 0; j < (CCC[0].SS>>4); ++ j)
+				{
+					xmm0 = _mm_unpacklo_epi16(R[i][j][n], G[i][j][n]),
+					xmm1 = _mm_unpacklo_epi16(B[i][j][n], _mm_set1_epi16(-1));
+					_mm_packs_epi16(_mm_srli_epi16(_mm_unpacklo_epi32(xmm0, xmm1), 8),
+							_mm_srli_epi16(_mm_unpackhi_epi32(xmm0, xmm1), 8)); // _mm_storeu_epi128
+					xmm0 = _mm_unpackhi_epi16(R[i][j][n], G[i][j][n]),
+					xmm1 = _mm_unpackhi_epi16(B[i][j][n], _mm_set1_epi16(-1));
+					_mm_packs_epi16(_mm_srli_epi16(_mm_unpacklo_epi32(xmm0, xmm1), 8),
+							_mm_srli_epi16(_mm_unpackhi_epi32(xmm0, xmm1), 8)); // _mm_storeu_epi128
+				}
+				x = 0, y += 10;
+			}
+			if(align == sizeof(short))
+			for(int i = 0; i < (CCC[0].SS&0x0F); ++ i)
+			for(int n = 0; n < 8; ++ n)
+			{
+				for(int j = 0; j < (CCC[0].SS>>4); ++ j)
+				{
+					xmm0 = _mm_unpacklo_epi16(R[i][j][n], G[i][j][n]);
+					xmm1 = _mm_unpacklo_epi16(B[i][j][n], _mm_set1_epi16(-1));
+					_mm_unpacklo_epi32(xmm0, xmm1); // _mm_storeu_epi128
+					_mm_unpackhi_epi32(xmm0, xmm1); // _mm_storeu_epi128
+					xmm0 = _mm_unpackhi_epi16(R[i][j][n], G[i][j][n]),
+					xmm1 = _mm_unpackhi_epi16(B[i][j][n], _mm_set1_epi16(-1));
+					_mm_unpacklo_epi32(xmm0, xmm1); // _mm_storeu_epi128
+					_mm_unpackhi_epi32(xmm0, xmm1); // _mm_storeu_epi128
+				}
+				x = 0, y += 10;
+			}
+			continue;
 		}
 	}
 	rsrc = RC(free, mem, size*X*Y);
