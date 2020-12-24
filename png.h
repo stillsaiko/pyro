@@ -1,72 +1,51 @@
 # pragma once
-// struct RGBA { unsigned char R, G, B, A }
+// image/png
 template<class> struct PNG;
+// struct RGB { char R, G, B }
+// PNG<RGB> image = PNG<RGB>("#@?!.png")
+// for i=0 i<image.Y ++i
+// for j=0 j<image.X ++j
+//	image[i][j].R
+//	image[i][j].G
+//	image[i][j].B
 # include <rc.h>
 template<> struct PNG<void>
 {
-	const unsigned X; // width
-	const unsigned Y; // height
-	const unsigned Z; // bit depth
-	const unsigned N; // color type
-	~
-	PNG(void)noexcept ;
-	PNG(void);
-	PNG(RC&&);
-	void operator = (PNG<void>&&)noexcept; // move
-	const void * operator * (void);
+	const uint32_t X; // width
+	const uint32_t Y; // height
+	const uint16_t Z; // bit depth
+	const uint16_t N; // color type
 protected:
 	RC rsrc;
+	// protected
+	PNG(void);
+	PNG(RC &&);
+	PNG(RC &&, size_t, size_t);
+	~
+	PNG(void)			noexcept;
+	PNG(PNG<void> &&)		noexcept;
+	void operator =(PNG<void> &&)	noexcept;
+	const void *operator *(void)	const;
 };
-// include <cstdio>
-// include <typeinfo>
-# include <error.h>
-// struct RGB { uint8_t R, G, B }
-// PNG<RGB> image = PNG<RGB>(RC(".png"))
-// for(size_t Y=0UL; Y < image.Y; ++Y)
-// for(size_t X=0UL; X < image.X; ++X)
-//	image[Y][X].R = ...
-//	image[Y][X].G = ...
-//	image[Y][X].B = ...
 template<class T> struct PNG : public PNG<void>
 {
 	PNG(void) = default;
+	PNG(RC &&resource);
+	~
+	PNG(void)			noexcept = default;
+	PNG(PNG<T> &&)			noexcept = default;
+	PNG<T>  &operator =(PNG<T> &&)	noexcept = default;
+	const T *operator *(void)	const;
+	const T *operator[](size_t n)	const
+	{
+		return operator *( ) + X * n;
+	}
 	static_assert(alignof(T) <= 2, "max 16-bit");
 	static_assert(sizeof(T) <= alignof(T) << 2, "max RGBA");
-	PNG(RC &&resource):
-	PNG<void>(static_cast<RC&&>(resource))
-	{
-		if(rsrc && X*Y && Z*N)
-		if(sizeof(T) != alignof(T)*N || alignof(T) != Z)
-		{
-			WARNING("convert %.*s%zu to %.*s%zu", N, "RGBA", Z << 3,
-				sizeof(T) / alignof(T), "RGBA", alignof(T) << 3);
-		//	printf("warning: convert %ubit to %ubit %s\n", 8*N*Z, 8*sizeof(T), typeid(T).name( ));
-			char * mem = (char*)malloc(sizeof(T)*X*Y);
-			unsigned L(0u);
-			unsigned R(0u);
-			for(unsigned i(0u); i<Y; ++i)
-			for(unsigned j(0u); j<X; ++j)
-			{
-				for(unsigned n(0u); n<sizeof(T)/alignof(T); ++n)
-				for(unsigned k(0u); k<alignof(T); ++k)
-				{
-			//	mem[sizeof(T)*(X*i+j)+n*alignof(T)+k] = n<N?memory[Z*N*(X*i+j)+n*Z+k%Z+Z/alignof(T)/2]:255;
-					# pragma warning (suppress: 6011)
-					# pragma warning (suppress: 6386)
-					mem[L+n*alignof(T)+k] = n<N?rsrc[R+n*Z+k%Z+Z/alignof(T)/2]:255;
-				}
-				L += sizeof(T);
-				R += N*Z ;
-			}
-			rsrc = RC(free, mem, sizeof(T)*X*Y);
-		}
-	}
-	const T * operator * (void)const
-	{
-		return &reinterpret_cast<const T *>(&rsrc[0])[0];
-	}
-	const T * operator[ ](size_t n)const
-	{
-		return &reinterpret_cast<const T *>(&rsrc[0])[X * n];
-	}
 };
+template<class T> PNG<T>::PNG(RC &&rsrc):
+PNG<void>(static_cast<RC &&>(rsrc), alignof(T), sizeof(T)) { }
+template<class T> const T *PNG<T>::operator *(void) const
+{
+	return static_cast<const T *>(PNG<void>::operator *( ));
+}
