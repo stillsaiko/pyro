@@ -18,7 +18,7 @@ constexpr uint32_t BIG32(const char a[4])
 JPEG<void>::JPEG(void): X(0), Y(0)
 { }
 # include <emmintrin.h> // SSE2
-JPEG<void>::JPEG(RC &&rsrc, size_t Z, size_t align): X(0), Y(0), rsrc(static_cast<RC &&>(rsrc))
+JPEG<void>::JPEG(RC &&rsrc, size_t align, size_t Z): X(0), Y(0), rsrc(static_cast<RC &&>(rsrc))
 {
 	constexpr uint8_t ZZ[64]
 	{
@@ -89,6 +89,7 @@ JPEG<void>::JPEG(RC &&rsrc, size_t Z, size_t align): X(0), Y(0), rsrc(static_cas
 //	const uint8_t (*QT[3])[8] { };
 //	const uint8_t (*HT[3][2]) { };
 
+	if(!rsrc.size || &rsrc[0] == nullptr) return; // prevent access violation
 	const char *byte = &rsrc[0];
 	// bytewise
 # ifndef NDEBUG
@@ -349,7 +350,6 @@ JPEG<void>::JPEG(RC &&rsrc, size_t Z, size_t align): X(0), Y(0), rsrc(static_cas
 	};
 	char *mem = static_cast<char *>(malloc(X*Y*Z));
 	RST;
-	int16_t DPCM[3] { };
 	for(int y=0; y<Y; y+=(CCC[0].SS&0x0F)<<3)
 	for(int x=0; x<X; x+=(CCC[0].SS&0xF0)>>1)
 	{
@@ -385,6 +385,7 @@ JPEG<void>::JPEG(RC &&rsrc, size_t Z, size_t align): X(0), Y(0), rsrc(static_cas
 			short Cr[8][8] { };
 			decode(CCC[2], Cr);
 			// color accumulate: chrominance (Cb, Cr)
+			if(Z/align > 1)
 			for(int i = 0; i < (CCC[0].SS&15); ++ i)
 			for(int j = 0; j < (CCC[0].SS>>4); ++ j)
 			{
@@ -413,6 +414,7 @@ JPEG<void>::JPEG(RC &&rsrc, size_t Z, size_t align): X(0), Y(0), rsrc(static_cas
 				}
 			}
 		}
+		char *p = &mem[(X*y+x)*Z];
 		switch(Z/align)
 		{
 		case 1: // RRRRRRRR
@@ -420,10 +422,10 @@ JPEG<void>::JPEG(RC &&rsrc, size_t Z, size_t align): X(0), Y(0), rsrc(static_cas
 			for(int i = 0; i < (CCC[0].SS&0x0F); ++ i)
 			for(int n = 0; n < 8; ++ n)
 			{
+				_mm_storeu_si128((__m128i *) &p[Z*X*(i*8+n)],
 				_mm_packs_epi16(_mm_srli_epi16(R[i][0][n], 8), CCC[0].SS & 0x20
 					?	_mm_srli_epi16(R[i][1][n], 8)
-					:	_mm_setzero_si128( ) ); // _mm_storeu_epi128
-				x = 0, y += 10;
+					:	_mm_setzero_si128( ) ));
 			}
 			if(align == sizeof(short))
 			for(int i = 0; i < (CCC[0].SS&0x0F); ++ i)
@@ -431,9 +433,8 @@ JPEG<void>::JPEG(RC &&rsrc, size_t Z, size_t align): X(0), Y(0), rsrc(static_cas
 			{
 				for(int j = 0; j < (CCC[0].SS>>4); ++ j)
 				{
-					R[i][j][n]; // _mm_storeu_epi128
+					_mm_storeu_si128((__m128i *) &p[Z*(X*(i*8+n)+j*8)], R[i][j][n]);
 				}
-				x = 0, y += 10;
 			}
 			continue;
 		case 2: // RGRGRGRG RGRGRGRG
@@ -443,10 +444,10 @@ JPEG<void>::JPEG(RC &&rsrc, size_t Z, size_t align): X(0), Y(0), rsrc(static_cas
 			{
 				for(int j = 0; j < (CCC[0].SS>>4); ++ j)
 				{
+					_mm_storeu_si128((__m128i *) &p[Z*(X*(i*8+n)+j*8)],
 					_mm_packs_epi16(_mm_srli_epi16(_mm_unpacklo_epi16(R[i][j][n], G[i][j][n]), 8),
-							_mm_srli_epi16(_mm_unpackhi_epi16(R[i][j][n], G[i][j][n]), 8)); // _mm_storeu_epi128
+							_mm_srli_epi16(_mm_unpackhi_epi16(R[i][j][n], G[i][j][n]), 8)));
 				}
-				x = 0, y += 10;
 			}
 			if(align == sizeof(short))
 			for(int i = 0; i < (CCC[0].SS&0x0F); ++ i)
@@ -454,10 +455,9 @@ JPEG<void>::JPEG(RC &&rsrc, size_t Z, size_t align): X(0), Y(0), rsrc(static_cas
 			{
 				for(int j = 0; j < (CCC[0].SS>>4); ++ j)
 				{
-					_mm_unpacklo_epi16(R[i][j][n], G[i][j][n]); // _mm_storeu_epi128
-					_mm_unpackhi_epi16(R[i][j][n], G[i][j][n]); // _mm_storeu_epi128
+					_mm_storeu_si128((__m128i *) &p[Z*(X*(i*8+n)+j*8+0)], _mm_unpacklo_epi16(R[i][j][n], G[i][j][n]));
+					_mm_storeu_si128((__m128i *) &p[Z*(X*(i*8+n)+j*8+4)], _mm_unpackhi_epi16(R[i][j][n], G[i][j][n]));
 				}
-				x = 0, y += 10;
 			}
 		case 3: // !RGB
 			if(align == sizeof(char))
@@ -468,7 +468,6 @@ JPEG<void>::JPEG(RC &&rsrc, size_t Z, size_t align): X(0), Y(0), rsrc(static_cas
 				{
 					char RGB[3][8]; // memcpy
 				}
-				x = 0, y += 10;
 			}
 			if(align == sizeof(short));
 			for(int i = 0; i < (CCC[0].SS&0x0F); ++ i)
@@ -478,7 +477,6 @@ JPEG<void>::JPEG(RC &&rsrc, size_t Z, size_t align): X(0), Y(0), rsrc(static_cas
 				{
 					short RGB[3][8]; // memcpy
 				}
-				x = 0, y += 10;
 			}
 			continue;
 		case 4: // RGBARGBA RGBARGBA RGBARGBA RGBARGBA
@@ -491,14 +489,15 @@ JPEG<void>::JPEG(RC &&rsrc, size_t Z, size_t align): X(0), Y(0), rsrc(static_cas
 				{
 					xmm0 = _mm_unpacklo_epi16(R[i][j][n], G[i][j][n]),
 					xmm1 = _mm_unpacklo_epi16(B[i][j][n], _mm_set1_epi16(-1));
+					_mm_storeu_si128((__m128i *) &p[Z*(X*(i*8+n)+j*8+0)],
 					_mm_packs_epi16(_mm_srli_epi16(_mm_unpacklo_epi32(xmm0, xmm1), 8),
-							_mm_srli_epi16(_mm_unpackhi_epi32(xmm0, xmm1), 8)); // _mm_storeu_epi128
+							_mm_srli_epi16(_mm_unpackhi_epi32(xmm0, xmm1), 8)));
 					xmm0 = _mm_unpackhi_epi16(R[i][j][n], G[i][j][n]),
 					xmm1 = _mm_unpackhi_epi16(B[i][j][n], _mm_set1_epi16(-1));
+					_mm_storeu_si128((__m128i *) &p[Z*(X*(i*8+n)+j*8+4)],
 					_mm_packs_epi16(_mm_srli_epi16(_mm_unpacklo_epi32(xmm0, xmm1), 8),
-							_mm_srli_epi16(_mm_unpackhi_epi32(xmm0, xmm1), 8)); // _mm_storeu_epi128
+							_mm_srli_epi16(_mm_unpackhi_epi32(xmm0, xmm1), 8)));
 				}
-				x = 0, y += 10;
 			}
 			if(align == sizeof(short))
 			for(int i = 0; i < (CCC[0].SS&0x0F); ++ i)
@@ -508,14 +507,13 @@ JPEG<void>::JPEG(RC &&rsrc, size_t Z, size_t align): X(0), Y(0), rsrc(static_cas
 				{
 					xmm0 = _mm_unpacklo_epi16(R[i][j][n], G[i][j][n]);
 					xmm1 = _mm_unpacklo_epi16(B[i][j][n], _mm_set1_epi16(-1));
-					_mm_unpacklo_epi32(xmm0, xmm1); // _mm_storeu_epi128
-					_mm_unpackhi_epi32(xmm0, xmm1); // _mm_storeu_epi128
+					_mm_storeu_si128((__m128i *) &p[Z*(X*(i*8+n)+j*8+0)], _mm_unpacklo_epi32(xmm0, xmm1));
+					_mm_storeu_si128((__m128i *) &p[Z*(X*(i*8+n)+j*8+2)], _mm_unpackhi_epi32(xmm0, xmm1));
 					xmm0 = _mm_unpackhi_epi16(R[i][j][n], G[i][j][n]),
 					xmm1 = _mm_unpackhi_epi16(B[i][j][n], _mm_set1_epi16(-1));
-					_mm_unpacklo_epi32(xmm0, xmm1); // _mm_storeu_epi128
-					_mm_unpackhi_epi32(xmm0, xmm1); // _mm_storeu_epi128
+					_mm_storeu_si128((__m128i *) &p[Z*(X*(i*8+n)+j*8+4)], _mm_unpacklo_epi32(xmm0, xmm1));
+					_mm_storeu_si128((__m128i *) &p[Z*(X*(i*8+n)+j*8+6)], _mm_unpackhi_epi32(xmm0, xmm1));
 				}
-				x = 0, y += 10;
 			}
 			continue;
 		}
