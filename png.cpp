@@ -905,17 +905,11 @@ constexpr unsigned BIG32(const int a){
 	return ((a & 0xff) << 24u) | ((a & 0xff << 8u) << 8u) | ((a & 0xff << 16u) >> 8u) | ((a & 0xff << 24u) >> 24u);
 }
 constexpr unsigned BIG32(const char a[]){ return BIG32(*reinterpret_cast<const int*>(a)); }*/
-PNG<void>::~PNG(void)noexcept
-{
-	const_cast<unsigned&>(X) = 0U ;
-	const_cast<unsigned&>(Y) = 0U ;
-	const_cast<unsigned&>(Z) = 0U ;
-	const_cast<unsigned&>(N) = 0U ;
-}
-PNG<void>::PNG(void):X(0),Y(0),Z(0),N(0)
+PNG<void>::PNG(void): X(0), Y(0), Z(0), N(0)
 { }
 PNG<void>::PNG(RC&& resource):X(0),Y(0),Z(0),N(0), rsrc(static_cast<RC&&>(resource))
 {
+	if(!rsrc.size || &rsrc[0] == nullptr) return; // prevent access violation
 	unsigned long size(0u);
 	unsigned char * PLTE(nullptr);
 	unsigned long nPLTE(0u);
@@ -938,12 +932,12 @@ PNG<void>::PNG(RC&& resource):X(0),Y(0),Z(0),N(0), rsrc(static_cast<RC&&>(resour
 	//				printf("IHDR\n");
 					ASSERT(n == 13u);
 					// discretization
-					const_cast<unsigned&>(X) = BIG32(pop(4)); // 0...3
-					const_cast<unsigned&>(Y) = BIG32(pop(4)); // 4...7
+					const_cast<uint32_t&>(X) = BIG32(pop(4)); // 0...3
+					const_cast<uint32_t&>(Y) = BIG32(pop(4)); // 4...7
 					ASSERT(X * Y);
 					// quantization
-					const_cast<unsigned&>(Z) = (*pop(1u) + 7u) / 8u ; // 8
-					const_cast<unsigned&>(N) = [ ](unsigned type)constexpr
+					const_cast<uint16_t&>(Z) = (*pop(1u) + 7u) / 8u ; // 8
+					const_cast<uint16_t&>(N) = [ ](unsigned type)constexpr
 					{
 						switch(type)
 						{
@@ -1071,7 +1065,7 @@ PNG<void>::PNG(RC&& resource):X(0),Y(0),Z(0),N(0), rsrc(static_cast<RC&&>(resour
 	{
 		ASSERT(Z == 1);
 		ASSERT(N == 1);
-		const_cast<unsigned&>(N) = 3u ; // suddenly hahaha
+		const_cast<uint16_t&>(N) = 3u ; // suddenly hahaha
 		auto *IDAT = static_cast<unsigned char *>(malloc(X*Y*Z*N));
 		for(unsigned i(0u); i<Y; ++i)
 		for(unsigned j(0u); j<X; ++j)
@@ -1089,15 +1083,51 @@ PNG<void>::PNG(RC&& resource):X(0),Y(0),Z(0),N(0), rsrc(static_cast<RC&&>(resour
 
 	}*/
 }
-void PNG<void>::operator = (PNG<void>&& a)noexcept
+// protected
+PNG<void>::PNG(RC&& resource, size_t align, size_t size): PNG<void>(static_cast<RC&&>(resource))
 {
-	this->~PNG( ); // ~
-	const_cast<unsigned&>(X) = a.X ;
-	const_cast<unsigned&>(Y) = a.Y ;
-	const_cast<unsigned&>(Z) = a.Z ;
-	const_cast<unsigned&>(N) = a.N ;
+	if(rsrc && X*Y && Z*N)
+	if(size != align*N || align != Z)
+	{
+		WARNING("convert %.*s%zu to %.*s%zu", N, "RGBA", Z << 3,
+			size / align, "RGBA", align << 3);
+	//	printf("warning: convert %ubit to %ubit %s\n", 8*N*Z, 8*sizeof(T), typeid(T).name( ));
+		char * mem = (char*)malloc(size*X*Y);
+		unsigned L(0u);
+		unsigned R(0u);
+		for(uint32_t i(0u); i<Y; ++i)
+		for(uint32_t j(0u); j<X; ++j)
+		{
+			for(uint16_t n(0u); n<size/align; ++n)
+			for(uint16_t k(0u); k<align; ++k)
+			{
+		//	mem[sizeof(T)*(X*i+j)+n*alignof(T)+k] = n<N?memory[Z*N*(X*i+j)+n*Z+k%Z+Z/alignof(T)/2]:255;
+				# pragma warning (suppress: 6011)
+				# pragma warning (suppress: 6386)
+				mem[L+n*align+k] = n<N?rsrc[R+n*Z+k%Z+Z/align/2]:255;
+			}
+			L += size;
+			R += N*Z ;
+		}
+		rsrc = RC(free, mem, size*X*Y);
+	}
 }
-const void * PNG<void>::operator * (void)
+PNG<void>::~ PNG(void) noexcept
 {
-	return &rsrc[0];
+	rsrc = { };
+}
+PNG<void>::PNG(PNG<void> &&PNG) noexcept: X(0), Y(0), Z(0), N(0)
+{
+	memcpy(this, &PNG, sizeof PNG);
+	memset(&PNG, NULL, sizeof PNG);
+}
+void PNG<void>::operator =(PNG<void>&& PNG) noexcept
+{
+	::PNG<void>::~ PNG( ); // dtor
+	memcpy(this, &PNG, sizeof PNG);
+	memset(&PNG, NULL, sizeof PNG);
+}
+const void *PNG<void>::operator *(void) const
+{
+	return rsrc.data;
 }
