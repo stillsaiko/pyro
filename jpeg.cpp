@@ -18,7 +18,7 @@ constexpr uint32_t BIG32(const char a[4])
 JPEG<void>::JPEG(void): X(0), Y(0)
 { }
 # include <emmintrin.h> // SSE2
-JPEG<void>::JPEG(RC &&rsrc, size_t align, size_t Z): X(0), Y(0), rsrc(static_cast<RC &&>(rsrc))
+JPEG<void>::JPEG(RC &&rsrc, size_t align, size_t Z): X(0), Y(0)
 {
 	constexpr uint8_t ZZ[64]
 	{
@@ -71,7 +71,7 @@ JPEG<void>::JPEG(RC &&rsrc, size_t align, size_t Z): X(0), Y(0), rsrc(static_cas
 		-27245, 6392, 32138, 18204, -18204, -32138, -6392, 27245,
 		20787, 28898, -9512, -32610, -3211, 31357, 15446, -25329
 	};
-
+	constexpr uint8_t PRECISION = 8;
 
 	// DC huff -> bitcount
 	// variable-size amplitude -> DC quantization
@@ -88,9 +88,8 @@ JPEG<void>::JPEG(RC &&rsrc, size_t align, size_t Z): X(0), Y(0), rsrc(static_cas
 
 //	const uint8_t (*QT[3])[8] { };
 //	const uint8_t (*HT[3][2]) { };
-
 	if(!rsrc.size || &rsrc[0] == nullptr) return; // prevent access violation
-	const char *byte = &rsrc[0];
+	const char *p = &rsrc[0];
 	// bytewise
 # ifndef NDEBUG
 	char c_str[512] {'\0'};
@@ -102,11 +101,11 @@ JPEG<void>::JPEG(RC &&rsrc, size_t align, size_t Z): X(0), Y(0), rsrc(static_cas
 	{
 		auto pop = [&](size_t n)
 		{
-			return (byte += n) - n;
+			return (p += n) - n;
 		};
 		uint16_t M;
-		const char *DQT[4];
-		const char *DHT[8];
+		const char *DQT[4] { };
+		const char *DHT[4][2] { };
 //		if(!ASSERT(BIG16(pop(2)) == 0xFFD8)) return; // SOI
 		do switch( M = BIG16(pop(2)) )
 		{
@@ -122,16 +121,19 @@ JPEG<void>::JPEG(RC &&rsrc, size_t align, size_t Z): X(0), Y(0), rsrc(static_cas
 			case 0xFFC3: // SOF3 Lossless
 			case 0xFFC2: // SOF2 Progressive
 			case 0xFFC1: // SOF1 Extended Sequential
-				printf("error: JPEG SOF%hu\n", M & 0x000F);
+				WARNING("SOF%hu", M & 0x000F);
 			case 0xFFC0: // SOF0 Baseline
 			{
 				uint16_t size = BIG16(pop(2));
 				ASSERT(size == 17 || size == 11);
-				ASSERT(*pop(1) == 8); // 8-bit precision
+				ASSERT(*pop(1) == PRECISION); // 8-bit precision
 				const_cast<uint16_t &>(Y) = BIG16(pop(2));
 				const_cast<uint16_t &>(X) = BIG16(pop(2));
 				NOC = *pop(1);
 				ASSERT(NOC == 3 || NOC == 1);
+			# ifndef NDEBUG
+				strcat(c_str, " ");
+			# endif
 				for(uint8_t i=0; i<NOC; ++i)
 				{
 					uint8_t comp = *pop(1);
@@ -151,14 +153,15 @@ JPEG<void>::JPEG(RC &&rsrc, size_t align, size_t Z): X(0), Y(0), rsrc(static_cas
 			case 0xFFC4: // DHT
 			{
 				uint16_t size = BIG16(pop(2));
-				size_t NOS = 0;
+				size_t NOS;
 				for(int j=2; j<size; j+=1+16+NOS)
 				{
 					uint8_t info = *pop(1);
 					ASSERT((info & 0b11101100) == 0);
-					DHT[info >> 2 | info & 0x00000111] = pop(16);
+					DHT[info & 0b00000011][info >> 4] = pop(16);
+					NOS = 0; // NEW
 					for(int i=0; i<16; ++i)
-					NOS += (uint8_t) DHT[info >> 2 | info & 0x00000111][i];
+					NOS += (uint8_t) DHT[info & 0b00000011][info >> 4][i];
 					pop(NOS);
 				}
 				continue;
@@ -180,9 +183,9 @@ JPEG<void>::JPEG(RC &&rsrc, size_t align, size_t Z): X(0), Y(0), rsrc(static_cas
 					ASSERT(1 <= comp && comp <= 3);
 					uint8_t huff = *pop(1);
 				//	HT[comp - 1][0] = (const uint8_t *) DHT[0 ^ huff >> 4];
-					CCC[comp - 1].HT[0] = (const uint8_t *) DHT[0 ^ huff >> 4];
+					CCC[comp - 1].HT[0] = (const uint8_t *) DHT[huff >> 4][0];
 				//	HT[comp - 1][1] = (const uint8_t *) DHT[8 ^ huff & 15];
-					CCC[comp - 1].HT[1] = (const uint8_t *) DHT[8 ^ huff & 15];
+					CCC[comp - 1].HT[1] = (const uint8_t *) DHT[huff & 15][1];
 				}
 				pop(3); // ignore
 				continue;
@@ -225,7 +228,7 @@ JPEG<void>::JPEG(RC &&rsrc, size_t align, size_t Z): X(0), Y(0), rsrc(static_cas
 			case 0xFFE2: // APP2
 			{
 				uint16_t size = BIG16(pop(2));
-				printf("warning: JPEG APP%hu %s\n", M & 0x000F, pop(size - sizeof size));
+				WARNING("warning: JPEG APP%hu %s", M & 0x000F, pop(size - sizeof size));
 				continue;
 			}
 			case 0xFFE1: // APP1
@@ -237,11 +240,10 @@ JPEG<void>::JPEG(RC &&rsrc, size_t align, size_t Z): X(0), Y(0), rsrc(static_cas
 					# ifndef NDEBUG
 						strcat(c_str, " Exif");
 					# endif
-						printf("[%i]", size - sizeof size - 6);
 						pop(size - sizeof size - 6);
 						continue;
 					default:
-						printf("warning: JPEG APP1 %s\n", pop(size - sizeof size - 6) - 6);
+						WARNING("APP1 %s", pop(size - sizeof size - 6) - 6);
 						continue;
 				}
 				continue;
@@ -259,7 +261,7 @@ JPEG<void>::JPEG(RC &&rsrc, size_t align, size_t Z): X(0), Y(0), rsrc(static_cas
 				uint8_t Y = *pop(1);
 				if(X * Y)
 				{
-					printf("warning: JPEG JFIF thumbnail\n");
+					WARNING("JFIF thumbnail");
 					pop(X * Y * 3); // RGB
 				}
 				ASSERT(size - 16 == X * Y * 3);
@@ -268,13 +270,13 @@ JPEG<void>::JPEG(RC &&rsrc, size_t align, size_t Z): X(0), Y(0), rsrc(static_cas
 			case 0xFFFE: // COM
 			{
 				uint16_t size = BIG16(pop(2));
-				printf("warning: JPEG %.*s\n", size - sizeof size, pop(size - sizeof size));
+				WARNING("%.*s", size - sizeof size, pop(size - sizeof size));
 				continue;
 			}
 			default:
 			{
 				ASSERT((M & 0xFF00) == 0xFF00);
-				printf("error: JPEG 0x%04x\n", M);
+				WARNING("0x%04x", M);
 				uint16_t size = BIG16(pop(2));
 				pop(size - sizeof size);
 				continue;
@@ -292,74 +294,98 @@ JPEG<void>::JPEG(RC &&rsrc, size_t align, size_t Z): X(0), Y(0), rsrc(static_cas
 			case 0x41: strcat(c_str, " 4:1:1 "); break;
 			default: break;
 		}
-		printf("%s", c_str);
+		printf("%s\n", c_str);
 	# endif
 	}
+//	CCC[0].SS = (CCC[0].SS>>4)|(CCC[0].SS<<4);
 	// bitwise
 	size_t bits = 0;
 	size_t size = 0;
-	auto peek = [&](size_t count) -> uint16_t
-	{
-		while(size < count) bits <<= 8, bits |= (uint8_t) *byte++, size += 8;
-		return bits >> size-count & (1 << count)-1;
-	};
 	auto pop = [&](size_t count) -> uint16_t
 	{
-		while(size < count) bits <<= 8, bits |= (uint8_t) *byte++, size += 8;
+		while(size < count)
+		{
+			uint8_t byte = *p++;
+			if(byte == 0xFF) ASSERT(!*p++);
+			bits <<= 8, bits |= byte, size += 8;
+		}
 		return size -= count, bits >> size & (1 << count)-1;
 	};
+	bool fail = false;
 	auto huff = [&](const uint8_t *H) -> uint8_t
 	{
+		if(!ASSERT(H)) return 0;
 		const uint8_t *sym = &H[16];
 		size_t k = 1;
 		size_t n = 1;
-		for(int i=0; i<16; ++i)
+		uint16_t bits = 0;
+		size_t K[16];
+		size_t N[16];
+		uint16_t BITS[16];
+		for(int i=0; i<16; ++i) // H[] = {0, 1, 5}
 		{
-			k <<= 1;
-			n <<= 1;
-			uint16_t bits = peek(i + 1);
-			for(int j=0; j < H[i]; ++j)
-			if(bits == k - n + j) return pop(i + 1), *sym;
-			else ++sym;
-			n -= H[i];
+			k <<= 1;			// k = 2	// k = 4	// k = 8
+			n <<= 1;			// n = 2	// n = 4	// n = 6
+			bits <<= 1;
+			bits |= pop(1);			// bits = 1	// bits = 2	// bits = 5
+		//	bits |= pop(1) << i;
+			K[i] = k;
+			N[i] = n;
+			BITS[i] = bits;
+			for(int j=0; j < H[i]; ++j)	//		// 2 == 0	// 5 == 8 - 6 + 3
+			if(bits == k - n + j) return *sym;
+			else ++ sym;
+			ASSERT(n -= H[i]);		// n = 2	// n = 3
 		}
+		fail = true;
+		printf(" 0b");
+		for(int i=0; i<16; ++i)
+		putchar(bits>>16-i-1&1?'1':'0');
+		printf("\n ");
+		for(int i=0; i<16; ++i)
+		printf("%c %hhu", i?',':'{', H[i]);
+		puts(" }");
+		for(int i=0; i<16; ++i)
+		printf("k=%u, n=%u, bits=%hu H[%i]=%hhu\n", K[i], N[i], BITS[i], i, H[i]);
 		return ERROR("no matching huffman code");
 	};
-	auto ampl = [&](uint16_t N) -> uint16_t
+	auto decode = [&](auto& C, short (&A)[8][8])
 	{
-		uint16_t X = pop(N);
-		return X<<1 < 1<<N ? X-(1<<N)+1 : X; // X<<1 < 1<<N ? -((1<<N) + ~X) : X;
-	};
-	auto decode = [&](auto& C, short (&AA)[8][8])
-	{
-		int k = 0;
-		int16_t *A = (short *) &AA[0][0];
-		A[ZZ[k++]] = C.DC += ampl(huff(C.HT[0]));
-		while(k < 64)
-		if(uint16_t N = huff(C.HT[1]))
 		{
-			while(N & 0xF0) // RLE
-			A[ZZ[k++]] = 0, N -= 0x10;
-			A[ZZ[k++]] = ampl(N);
+			uint8_t N = huff(C.HT[0]);
+			uint16_t X = pop(N);
+			C.DC += X<<1 < 1<<N ? X-(1<<N)+1 : X;
+			A[ZZ[0] >> 3][ZZ[0] & 7] = C.DC * C.QT[ZZ[0]];
 		}
-		else // EOB
+		for(int k = 1; k < 64; ++ k)
+		if(uint8_t N = huff(C.HT[1]))
 		{
-			while(k < 64)
-			A[ZZ[k++]] = 0;
+			k += N >> 4; // RLE (ZRL)
+			N &= 0x0F;
+			if(!ASSERT(k < 64)) return; // ERROR
+			uint16_t X = pop(N);
+			int16_t AC = X<<1 < 1<<N ? X-(1<<N)+1 : X;
+			A[ZZ[k] >> 3][ZZ[k] & 7] = AC * C.QT[ZZ[k]];
 		}
+		else return; // EOB
 	};
 	char *mem = static_cast<char *>(malloc(X*Y*Z));
+	this->rsrc = RC(free, mem, X*Y*Z); memset(mem, 0, X*Y*Z); // NEW
 	RST;
 	for(int y=0; y<Y; y+=(CCC[0].SS&0x0F)<<3)
 	for(int x=0; x<X; x+=(CCC[0].SS&0xF0)>>1)
 	{
 		__m128i R[2][2][8];
-		for(short i = 0; i < (CCC[0].SS&0x0F); ++ i)
+		for(short i = 0; i < (CCC[0].SS&15); ++ i)
 		for(short j = 0; j < (CCC[0].SS>>4); ++ j)
 		{
 			// huffman decode: luminance (Y)
 			short Y[8][8] { };
 			decode(CCC[0], Y);
+			if(fail) // #@?!
+			{
+				printf("(Y) y=%i/%hu x=%i/%hu i=%hi j=%hi\n\n", y, this->Y, x, this->X, i, j);
+			}
 			// color accumulate: luminance (Y)
 			for(int n = 0; n < 8; ++ n)
 			{
@@ -371,7 +397,8 @@ JPEG<void>::JPEG(RC &&rsrc, size_t align, size_t Z): X(0), Y(0), rsrc(static_cas
 					 xmm0 = _mm_add_epi16(xmm0, _mm_mulhi_epi16(_mm_set1_epi16(Y[i][j]),
 						_mm_mulhi_epi16(xmm1, _mm_loadu_si128((__m128i *) COS16[j])) ));
 				}
-				R[i][j][n] = _mm_add_epi16(xmm0, _mm_set1_epi16(INT16_MIN));
+	//			R[i][j][n] = xmm0;
+				R[i][j][n] = _mm_add_epi16(/**/_mm_mullo_epi16(xmm0, _mm_set1_epi16(UINT8_MAX))/**/, _mm_set1_epi16(INT16_MIN));
 			}
 		}
 		__m128i G[2][2][8];
@@ -381,9 +408,17 @@ JPEG<void>::JPEG(RC &&rsrc, size_t align, size_t Z): X(0), Y(0), rsrc(static_cas
 			// huffman decode: chrominance (Cb)
 			short Cb[8][8] { };
 			decode(CCC[1], Cb);
+			if(fail) // #@?!
+			{
+				printf("(Cb) y=%i/%i x=%i/%i\n", y, this->Y, x, this->X);
+			}
 			// huffman decode: chrominance (Cr)
 			short Cr[8][8] { };
 			decode(CCC[2], Cr);
+			if(fail) // #@?!
+			{
+				printf("(Cr) y=%i/%i x=%i/%i\n", y, this->Y, x, this->X);
+			}
 			// color accumulate: chrominance (Cb, Cr)
 			if(Z/align > 1)
 			for(int i = 0; i < (CCC[0].SS&15); ++ i)
@@ -407,14 +442,19 @@ JPEG<void>::JPEG(RC &&rsrc, size_t align, size_t Z): X(0), Y(0), rsrc(static_cas
 							xmm1 = _mm_add_epi16(xmm1, _mm_mulhi_epi16(_mm_set1_epi16(Cr[i][j]), xmm3));
 						}
 					}
-					R[i][j][n] = _mm_add_epi16(R[i][j][n], xmm0);
-					G[i][j][n] = _mm_sub_epi16(G[i][j][n], xmm0);
-					G[i][j][n] = _mm_sub_epi16(G[i][j][n], xmm1);
-					B[i][j][n] = _mm_add_epi16(B[i][j][n], xmm1);
+					R[i][j][n] = _mm_add_epi16(R[i][j][n], /**/_mm_mullo_epi16(xmm1, _mm_set1_epi16(UINT8_MAX))/**/);
+					G[i][j][n] = _mm_sub_epi16(G[i][j][n], /**/_mm_mullo_epi16(xmm1, _mm_set1_epi16(UINT8_MAX))/**/);
+					G[i][j][n] = _mm_sub_epi16(G[i][j][n], /**/_mm_mullo_epi16(xmm0, _mm_set1_epi16(UINT8_MAX))/**/);
+					B[i][j][n] = _mm_add_epi16(B[i][j][n], /**/_mm_mullo_epi16(xmm0, _mm_set1_epi16(UINT8_MAX))/**/);
 				}
 			}
 		}
-		char *p = &mem[(X*y+x)*Z];
+		// HARTER TEST HIER ///////////////////////////////
+		if(fail) // #@?!
+		{
+			return;
+		}
+		// HARTER TEST ENDE ///////////////////////////////
 		switch(Z/align)
 		{
 		case 1: // RRRRRRRR
@@ -422,7 +462,7 @@ JPEG<void>::JPEG(RC &&rsrc, size_t align, size_t Z): X(0), Y(0), rsrc(static_cas
 			for(int i = 0; i < (CCC[0].SS&0x0F); ++ i)
 			for(int n = 0; n < 8; ++ n)
 			{
-				_mm_storeu_si128((__m128i *) &p[Z*X*(i*8+n)],
+				_mm_storeu_si128((__m128i *) &mem[Z*(X*(y+i*8+n)+x)],
 				_mm_packs_epi16(_mm_srli_epi16(R[i][0][n], 8), CCC[0].SS & 0x20
 					?	_mm_srli_epi16(R[i][1][n], 8)
 					:	_mm_setzero_si128( ) ));
@@ -433,7 +473,7 @@ JPEG<void>::JPEG(RC &&rsrc, size_t align, size_t Z): X(0), Y(0), rsrc(static_cas
 			{
 				for(int j = 0; j < (CCC[0].SS>>4); ++ j)
 				{
-					_mm_storeu_si128((__m128i *) &p[Z*(X*(i*8+n)+j*8)], R[i][j][n]);
+					_mm_storeu_si128((__m128i *) &mem[Z*(X*(y+i*8+n)+x+j*8)], R[i][j][n]);
 				}
 			}
 			continue;
@@ -444,7 +484,7 @@ JPEG<void>::JPEG(RC &&rsrc, size_t align, size_t Z): X(0), Y(0), rsrc(static_cas
 			{
 				for(int j = 0; j < (CCC[0].SS>>4); ++ j)
 				{
-					_mm_storeu_si128((__m128i *) &p[Z*(X*(i*8+n)+j*8)],
+					_mm_storeu_si128((__m128i *) &mem[Z*(X*(y+i*8+n)+x+j*8)],
 					_mm_packs_epi16(_mm_srli_epi16(_mm_unpacklo_epi16(R[i][j][n], G[i][j][n]), 8),
 							_mm_srli_epi16(_mm_unpackhi_epi16(R[i][j][n], G[i][j][n]), 8)));
 				}
@@ -455,8 +495,8 @@ JPEG<void>::JPEG(RC &&rsrc, size_t align, size_t Z): X(0), Y(0), rsrc(static_cas
 			{
 				for(int j = 0; j < (CCC[0].SS>>4); ++ j)
 				{
-					_mm_storeu_si128((__m128i *) &p[Z*(X*(i*8+n)+j*8+0)], _mm_unpacklo_epi16(R[i][j][n], G[i][j][n]));
-					_mm_storeu_si128((__m128i *) &p[Z*(X*(i*8+n)+j*8+4)], _mm_unpackhi_epi16(R[i][j][n], G[i][j][n]));
+					_mm_storeu_si128((__m128i *) &mem[Z*(X*(y+i*8+n)+x+j*8+0)], _mm_unpacklo_epi16(R[i][j][n], G[i][j][n]));
+					_mm_storeu_si128((__m128i *) &mem[Z*(X*(y+i*8+n)+x+j*8+4)], _mm_unpackhi_epi16(R[i][j][n], G[i][j][n]));
 				}
 			}
 		case 3: // !RGB
@@ -489,14 +529,14 @@ JPEG<void>::JPEG(RC &&rsrc, size_t align, size_t Z): X(0), Y(0), rsrc(static_cas
 				{
 					xmm0 = _mm_unpacklo_epi16(R[i][j][n], G[i][j][n]),
 					xmm1 = _mm_unpacklo_epi16(B[i][j][n], _mm_set1_epi16(-1));
-					_mm_storeu_si128((__m128i *) &p[Z*(X*(i*8+n)+j*8+0)],
-					_mm_packs_epi16(_mm_srli_epi16(_mm_unpacklo_epi32(xmm0, xmm1), 8),
-							_mm_srli_epi16(_mm_unpackhi_epi32(xmm0, xmm1), 8)));
+					_mm_storeu_si128((__m128i *) &mem[Z*(X*(y+i*8+n)+x+j*8+0)],
+					_mm_packus_epi16(/*_mm_srli_epi16(*/_mm_unpacklo_epi32(xmm0, xmm1)/*, PRECISION - 8)*/,
+							/*_mm_srli_epi16(*/_mm_unpackhi_epi32(xmm0, xmm1)/*, PRECISION - 8)*/));
 					xmm0 = _mm_unpackhi_epi16(R[i][j][n], G[i][j][n]),
 					xmm1 = _mm_unpackhi_epi16(B[i][j][n], _mm_set1_epi16(-1));
-					_mm_storeu_si128((__m128i *) &p[Z*(X*(i*8+n)+j*8+4)],
-					_mm_packs_epi16(_mm_srli_epi16(_mm_unpacklo_epi32(xmm0, xmm1), 8),
-							_mm_srli_epi16(_mm_unpackhi_epi32(xmm0, xmm1), 8)));
+					_mm_storeu_si128((__m128i *) &mem[Z*(X*(y+i*8+n)+x+j*8+4)],
+					_mm_packus_epi16(/*_mm_srli_epi16(*/_mm_unpacklo_epi32(xmm0, xmm1)/*, PRECISION - 8)*/,
+							/*_mm_srli_epi16(*/_mm_unpackhi_epi32(xmm0, xmm1)/*, PRECISION - 8)*/));
 				}
 			}
 			if(align == sizeof(short))
@@ -507,18 +547,25 @@ JPEG<void>::JPEG(RC &&rsrc, size_t align, size_t Z): X(0), Y(0), rsrc(static_cas
 				{
 					xmm0 = _mm_unpacklo_epi16(R[i][j][n], G[i][j][n]);
 					xmm1 = _mm_unpacklo_epi16(B[i][j][n], _mm_set1_epi16(-1));
-					_mm_storeu_si128((__m128i *) &p[Z*(X*(i*8+n)+j*8+0)], _mm_unpacklo_epi32(xmm0, xmm1));
-					_mm_storeu_si128((__m128i *) &p[Z*(X*(i*8+n)+j*8+2)], _mm_unpackhi_epi32(xmm0, xmm1));
+					if(ASSERT(Z*(X*(y+i*8+n)+x+j*8+0) < X*Y*Z))
+					_mm_storeu_si128((__m128i *) &mem[Z*(X*(y+i*8+n)+x+j*8+0)], _mm_unpacklo_epi32(xmm0, xmm1));
+					if(ASSERT(Z*(X*(y+i*8+n)+x+j*8+2) < X*Y*Z))
+					_mm_storeu_si128((__m128i *) &mem[Z*(X*(y+i*8+n)+x+j*8+2)], _mm_unpackhi_epi32(xmm0, xmm1));
 					xmm0 = _mm_unpackhi_epi16(R[i][j][n], G[i][j][n]),
 					xmm1 = _mm_unpackhi_epi16(B[i][j][n], _mm_set1_epi16(-1));
-					_mm_storeu_si128((__m128i *) &p[Z*(X*(i*8+n)+j*8+4)], _mm_unpacklo_epi32(xmm0, xmm1));
-					_mm_storeu_si128((__m128i *) &p[Z*(X*(i*8+n)+j*8+6)], _mm_unpackhi_epi32(xmm0, xmm1));
+					if(ASSERT(Z*(X*(y+i*8+n)+x+j*8+4) < X*Y*Z))
+					_mm_storeu_si128((__m128i *) &mem[Z*(X*(y+i*8+n)+x+j*8+4)], _mm_unpacklo_epi32(xmm0, xmm1));
+					if(ASSERT(Z*(X*(y+i*8+n)+x+j*8+6) < X*Y*Z))
+					_mm_storeu_si128((__m128i *) &mem[Z*(X*(y+i*8+n)+x+j*8+6)], _mm_unpackhi_epi32(xmm0, xmm1));
 				}
 			}
 			continue;
 		}
 	}
-	rsrc = RC(free, mem, size*X*Y);
+	ASSERT(static_cast<uint8_t>(p[0]) == 0xFF);
+	ASSERT(static_cast<uint8_t>(p[1]) == 0xC4);
+	//this->rsrc = RC(free, mem, X*Y*Z);
+	printf("diff %i\n", p - &rsrc[0]);
 }
 // noexcept
 JPEG<void>::~JPEG(void) noexcept
