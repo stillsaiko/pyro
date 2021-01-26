@@ -94,6 +94,7 @@ JPEG<void>::JPEG(RC &&rsrc, size_t align, size_t Z): X(0), Y(0)
 # ifndef NDEBUG
 	char c_str[512] {'\0'};
 # endif
+	enum { SOF0, SOF2 } SOF = SOF0;
 //	int16_t Q[2][8][8]; // YCbCr
 //	uint8_t SS;
 	uint16_t RST = 0xFFFF;
@@ -119,9 +120,10 @@ JPEG<void>::JPEG(RC &&rsrc, size_t align, size_t Z): X(0), Y(0)
 			case 0xFFC6: // SOF6 Progressive (differential)
 			case 0xFFC5: // SOF5 Sequential (differential)
 			case 0xFFC3: // SOF3 Lossless
-			case 0xFFC2: // SOF2 Progressive
 			case 0xFFC1: // SOF1 Extended Sequential
 				WARNING("SOF%hu", M & 0x000F);
+			case 0xFFC2: // SOF2 Progressive
+				SOF = SOF2;
 			case 0xFFC0: // SOF0 Baseline
 			{
 				uint16_t size = BIG16(pop(2));
@@ -187,7 +189,8 @@ JPEG<void>::JPEG(RC &&rsrc, size_t align, size_t Z): X(0), Y(0)
 				//	HT[comp - 1][1] = (const uint8_t *) DHT[8 ^ huff & 15];
 					CCC[comp - 1].HT[1] = (const uint8_t *) DHT[huff & 15][1];
 				}
-				pop(3); // ignore
+			//	pop(3); // ignore
+				printf("ignore %hhu %hhu %hhu\n", *pop(1), *pop(1), *pop(1));
 				continue;
 			}
 			case 0xFFDB: // DQT
@@ -355,7 +358,7 @@ JPEG<void>::JPEG(RC &&rsrc, size_t align, size_t Z): X(0), Y(0)
 			uint8_t N = huff(C.HT[0]);
 			uint16_t X = pop(N);
 			C.DC += X<<1 < 1<<N ? X-(1<<N)+1 : X;
-			A[ZZ[0] >> 3][ZZ[0] & 7] = C.DC * C.QT[ZZ[0]];
+			A[ZZ[0] >> 3][ZZ[0] & 7] += C.DC * C.QT[ZZ[0]];
 		}
 		for(int k = 1; k < 64; ++ k)
 		if(uint8_t N = huff(C.HT[1]))
@@ -365,13 +368,44 @@ JPEG<void>::JPEG(RC &&rsrc, size_t align, size_t Z): X(0), Y(0)
 			if(!ASSERT(k < 64)) return; // ERROR
 			uint16_t X = pop(N);
 			int16_t AC = X<<1 < 1<<N ? X-(1<<N)+1 : X;
-			A[ZZ[k] >> 3][ZZ[k] & 7] = AC * C.QT[ZZ[k]];
+			A[ZZ[k] >> 3][ZZ[k] & 7] += AC * C.QT[ZZ[k]];
 		}
 		else return; // EOB
 	};
 	char *mem = static_cast<char *>(malloc(X*Y*Z));
 	this->rsrc = RC(free, mem, X*Y*Z); memset(mem, 0, X*Y*Z); // NEW
 	RST;
+	/*if(SOF == SOF2)
+	{
+		short (*RGBA)[8][8] = new short[(X+7>>3)*(Y+7>>3)*NOC][8][8];
+		for(int y=0; y<Y; y+=(CCC[0].SS&0x0F)<<3)
+		for(int x=0; x<X; x+=(CCC[0].SS&0xF0)>>1)
+		{
+			for(short i = 0; i < (CCC[0].SS&15); ++ i)
+			for(short j = 0; j < (CCC[0].SS>>4); ++ j)
+			for(char k = 0; k < NOC; ++ k)
+			{
+				// huffman decode: luminance (Y)
+				short Y[8][8] { };
+				decode(CCC[0], Y);
+				// color accumulate: luminance (Y)
+				for(int n = 0; n < 8; ++ n)
+				{
+					__m128i xmm0 = _mm_setzero_si128( );
+					for(int i = 0; i < 8; ++ i)
+					{
+						__m128i xmm1 = _mm_set1_epi16(COS16[i][n]);
+						for(int j = 0; j < 8; ++ j)
+						 xmm0 = _mm_add_epi16(xmm0, _mm_mulhi_epi16(_mm_set1_epi16(Y[i][j]),
+							_mm_mulhi_epi16(xmm1, _mm_loadu_si128((__m128i *) COS16[j])) ));
+					}
+		//			R[i][j][n] = xmm0;
+					RGBA[(X+7>>3)*((this->Y+7>>3)*NOC)*(y>>3)+(x>>3)][i][j][n] = _mm_add_epi16(_mm_mullo_epi16(xmm0, _mm_set1_epi16(UINT8_MAX)), _mm_set1_epi16(INT16_MIN));
+				}
+			}
+		}
+	}
+	else // SOF0*/
 	for(int y=0; y<Y; y+=(CCC[0].SS&0x0F)<<3)
 	for(int x=0; x<X; x+=(CCC[0].SS&0xF0)>>1)
 	{
@@ -450,10 +484,30 @@ JPEG<void>::JPEG(RC &&rsrc, size_t align, size_t Z): X(0), Y(0)
 			}
 		}
 		// HARTER TEST HIER ///////////////////////////////
+	/*	short *pixels = (short *) mem;
+		__m128i xmm0, xmm1;
+		if(align == sizeof(short))
+		for(int i = 0; i < (CCC[0].SS&0x0F); ++ i)
+		for(int n = 0; n < 8; ++ n)
+		{
+			for(int j = 0; j < (CCC[0].SS>>4); ++ j)
+			{
+				short RGB[3][8];
+				_mm_storeu_si128((__m128i *) RGB[0], R[i][j][n]);
+				_mm_storeu_si128((__m128i *) RGB[1], G[i][j][n]);
+				_mm_storeu_si128((__m128i *) RGB[2], B[i][j][n]);
+				for(int k = 0; k < 8; ++ k)
+				pixels[4*(X*(y+i*8+n)+x+j*8+k)+0] = RGB[0][k],
+				pixels[4*(X*(y+i*8+n)+x+j*8+k)+1] = RGB[1][k],
+				pixels[4*(X*(y+i*8+n)+x+j*8+k)+2] = RGB[2][k],
+				pixels[4*(X*(y+i*8+n)+x+j*8+k)+3] = -1;
+			}
+		}*/
 		if(fail) // #@?!
 		{
 			return;
 		}
+		/*continue;*/
 		// HARTER TEST ENDE ///////////////////////////////
 		switch(Z/align)
 		{
@@ -564,8 +618,37 @@ JPEG<void>::JPEG(RC &&rsrc, size_t align, size_t Z): X(0), Y(0)
 	}
 	ASSERT(static_cast<uint8_t>(p[0]) == 0xFF);
 	ASSERT(static_cast<uint8_t>(p[1]) == 0xC4);
-	//this->rsrc = RC(free, mem, X*Y*Z);
 	printf("diff %i\n", p - &rsrc[0]);
+	if(p - &rsrc[0] < rsrc.size)
+	{
+		auto pop = [&](size_t n)
+		{
+			return (p += n) - n;
+		};
+		uint16_t M = BIG16(pop(2));
+		if(M == 0xFFC4) // DHT
+		{
+			uint16_t size = BIG16(pop(2));
+			pop(size - sizeof size);
+			M = BIG16(pop(2));
+		}
+		if(M == 0xFFDA) // SOS
+		{
+			uint16_t size = BIG16(pop(2));
+			uint8_t NOC = *pop(1);
+			if(NOC == 1) ASSERT(size == 8); // Y
+			if(NOC == 3) ASSERT(size == 12); // YCbCr
+			for(uint8_t i=0; i<NOC; ++i)
+			{
+				uint8_t comp = *pop(1);
+				ASSERT(1 <= comp && comp <= 3);
+				uint8_t huff = *pop(1);
+			}
+		//	pop(3); // ignore
+			printf("ignore %hhu %hhu %hhu\n", *pop(1), *pop(1), *pop(1));
+		}
+	}
+	//this->rsrc = RC(free, mem, X*Y*Z);
 }
 // noexcept
 JPEG<void>::~JPEG(void) noexcept
