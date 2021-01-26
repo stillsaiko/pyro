@@ -1,149 +1,102 @@
 # include "hid.h"
-HID<>::~HID(void){
-	printf("warning: __HID (destructor)\n");
-	if( data )
+# include "error.h"
+HID<>::~HID(void)
+{
+	if(RAWINPUT && ASSERT(cbSize) && ASSERT(hDevice))
 	{
-		delete[ ] data;
-		RIDEV.dwFlags = RIDEV_REMOVE;
-		RegisterRawInputDevices(& RIDEV, 1, sizeof RIDEV);
+		free(RAWINPUT), free(hDevice);
+		RAWINPUTDEVICE.dwFlags = RIDEV_REMOVE;
+		RegisterRawInputDevices(& RAWINPUTDEVICE, 1, sizeof RAWINPUTDEVICE);
 	}
+	memset(this, 0, sizeof(HID<>));
 }
-HID<>::HID(void){ }
-HID<>::HID(USHORT usUsagePage, USHORT usUsage, HWND hWnd){
-	if(usUsagePage == 1u && usUsage == 2u) RIM_TYPE = RIM_TYPEMOUSE;
-	if(usUsagePage == 1u && usUsage == 6u) RIM_TYPE = RIM_TYPEKEYBOARD;
+HID<>::HID(void): dwCount(0)
+{ }
+HID<>::HID(HWND hWnd, USHORT usUsagePage, USHORT usUsage, DWORD dwFlags): dwCount(0),
+dwType(usUsagePage == 1 ? usUsage == 2 ? RIM_TYPEMOUSE : usUsage == 6 ? RIM_TYPEKEYBOARD : RIM_TYPEHID : RIM_TYPEHID)
+{	
+	UINT uiNumDevices = 0;
+	GetRawInputDeviceList(nullptr, & uiNumDevices, sizeof(RAWINPUTDEVICELIST)); 
+	RAWINPUTDEVICELIST *RAWINPUTDEVICELIST = new ::RAWINPUTDEVICELIST[uiNumDevices];
+	UINT n = GetRawInputDeviceList(RAWINPUTDEVICELIST, & uiNumDevices, sizeof(::RAWINPUTDEVICELIST)); 
+	for(UINT i = 0; i < n; ++ i)
+	# pragma warning (suppress: 6385) // Reading invalid data from 'pRawInputDeviceList':
+	// the readable size is 'uiNumDevices*8' bytes, but '16' bytes may be read.
+	if(RAWINPUTDEVICELIST[i].dwType == dwType)
 	{
-		UINT count = 0u ;
-		GetRawInputDeviceList(nullptr, & count, sizeof(RAWINPUTDEVICELIST)); 
-		RAWINPUTDEVICELIST * list = new RAWINPUTDEVICELIST[count];
-		size_t n = GetRawInputDeviceList(list, & count, sizeof(RAWINPUTDEVICELIST)); 
-		for(size_t i = 0u ; i < n ; ++ i){
-			RID_DEVICE_INFO info {0};
-			UINT size = sizeof info;
-# pragma warning(suppress: 6385)
-			GetRawInputDeviceInfoA(list[i].hDevice, RIDI_DEVICEINFO, &info, & size);
-			if( list[i].dwType == RIM_TYPE )
-			if( info.hid.usUsagePage == usUsagePage )
-			if( info.hid.usUsage == usUsage )
+		RID_DEVICE_INFO RID_DEVICE_INFO {0};
+		UINT cbSize = sizeof RID_DEVICE_INFO;
+		# pragma warning(suppress: 6385)
+		if(ASSERT(GetRawInputDeviceInfoA(RAWINPUTDEVICELIST[i].hDevice, RIDI_DEVICEINFO, & RID_DEVICE_INFO, & cbSize) == sizeof RID_DEVICE_INFO))
+		if(dwType == RIM_TYPEMOUSE || dwType == RIM_TYPEKEYBOARD || RID_DEVICE_INFO.hid.usUsagePage == usUsagePage && RID_DEVICE_INFO.hid.usUsage == usUsage)
+		{
+			if(hDevice == nullptr)
 			{
-			set.emplace( list[i].hDevice );/* printf(" hDevice 0x%p\n", list[i].hDevice);
-			if( info.dwType == RIM_TYPEMOUSE ) printf(" RIM_TYPEMOUSE\n");
-			if( info.dwType == RIM_TYPEKEYBOARD ) printf(" RIM_TYPEKEYBOARD\n");
-			if( info.dwType == RIM_TYPEHID ) printf(" RIM_TYPEHID (usUsagePage=%hu usUsage=%hu)\n", info.hid.usUsagePage, info.hid.usUsage);
-			{
-				printf(" HIDD_ATTRIBUTES\n");
-				HIDD_ATTRIBUTES ATTRIBUTES ;
-				HidD_GetAttributes(list[i].hDevice, & ATTRIBUTES);
-				printf("VendorID %hu\n", ATTRIBUTES.VendorID);
-				printf("ProductID %hu\n", ATTRIBUTES.ProductID);
-				printf("VersionNumber %hu\n", ATTRIBUTES.VersionNumber);
+				hDevice = static_cast<HANDLE *>(malloc(sizeof(HANDLE) + sizeof(HANDLE)));
+				hDevice[0] = RAWINPUTDEVICELIST[i].hDevice;
+				hDevice[1] = nullptr;
 			}
-			GetRawInputDeviceInfoA(list[i].hDevice, RIDI_PREPARSEDDATA, nullptr, & size);
-			BYTE * PREPARSEDDATA = new BYTE[size];
-			GetRawInputDeviceInfoA(list[i].hDevice, RIDI_PREPARSEDDATA, PREPARSEDDATA, & size);
+			else
 			{
-				printf(" HIDP_CAPS\n");
-				HIDP_CAPS CAPS ;
-				HidP_GetCaps((PHIDP_PREPARSED_DATA)PREPARSEDDATA, & CAPS);
-				printf("Usage %hu\n", CAPS.Usage);
-				printf("UsagePage %hu\n", CAPS.UsagePage);
-				printf("InputReportByteLength %hu\n", CAPS.InputReportByteLength);
-				printf("OutputReportByteLength %hu\n", CAPS.OutputReportByteLength);
-				printf("FeatureReportByteLength %hu\n", CAPS.FeatureReportByteLength);
-				printf("Reserved[17]\n");
-				printf("NumberLinkCollectionNodes %hu\n", CAPS.NumberLinkCollectionNodes);
-				printf("NumberInputButtonCaps %hu\n", CAPS.NumberInputButtonCaps);
-				printf("NumberInputValueCaps %hu\n", CAPS.NumberInputValueCaps);
-				printf("NumberInputDataIndices %hu\n", CAPS.NumberInputDataIndices);
-				printf("NumberOutputButtonCaps %hu\n", CAPS.NumberOutputButtonCaps);
-				printf("NumberOutputValueCaps %hu\n", CAPS.NumberOutputValueCaps);
-				printf("NumberOutputDataIndices %hu\n", CAPS.NumberOutputDataIndices);
-				printf("NumberFeatureButtonCaps %hu\n", CAPS.NumberFeatureButtonCaps);
-				printf("NumberFeatureValueCaps %hu\n", CAPS.NumberFeatureValueCaps);
-				printf("NumberFeatureDataIndices %hu\n", CAPS.NumberFeatureDataIndices);
-				{
-					printf(" HIDP_VALUE_CAPS\n");
-					HIDP_VALUE_CAPS *
-							VALUE_CAPS = new
-					HIDP_VALUE_CAPS[CAPS.NumberInputValueCaps];
-					HidP_GetValueCaps(HidP_Input, VALUE_CAPS, &CAPS.NumberInputValueCaps, (PHIDP_PREPARSED_DATA)PREPARSEDDATA);
-					for(size_t i=0; i<CAPS.NumberInputValueCaps; ++i){
-						printf("UsagePage: %hu\n", VALUE_CAPS[i].UsagePage);
-						printf("ReportID: %hhu\n", VALUE_CAPS[i].ReportID);
-						printf("IsAlias: %s\n", VALUE_CAPS[i].IsAlias ? "TRUE" : "FALSE");
-
-						printf("BitField: %hu\n", VALUE_CAPS[i].BitField);
-						printf("LinkCollection: %hu\n", VALUE_CAPS[i].LinkCollection);   // A unique internal index pointer
-
-						printf("LinkUsage: %hu\n", VALUE_CAPS[i].LinkUsage);
-						printf("LinkUsagePage: %hu\n", VALUE_CAPS[i].LinkUsagePage);
-
-						printf("IsRange: %s\n", VALUE_CAPS[i].IsRange ? "TRUE" : "FALSE");
-						printf("IsStringRange: %s\n", VALUE_CAPS[i].IsStringRange ? "TRUE" : "FALSE");
-						printf("IsDesignatorRange: %s\n", VALUE_CAPS[i].IsDesignatorRange ? "TRUE" : "FALSE");
-						printf("IsAbsolute: %s\n", VALUE_CAPS[i].IsAbsolute ? "TRUE" : "FALSE");
-
-						printf("HasNull: %s\n", VALUE_CAPS[i].HasNull ? "TRUE" : "FALSE");        // Does this channel have a null report   union
-						//printf("Reserved: %hhu\n", VALUE_CAPS[i].Reserved);
-						printf("BitSize: %hu\n", VALUE_CAPS[i].BitSize);        // How many bits are devoted to this value?
-
-						printf("ReportCount: %hu\n", VALUE_CAPS[i].ReportCount);    // See Note below.  Usually set to 1.
-						//printf("Reserved2[5]\n");
-
-						printf("UnitsExp: %lu\n", VALUE_CAPS[i].UnitsExp);
-						printf("Units: %lu\n", VALUE_CAPS[i].Units);
-
-						printf("Logical: [%li, %li]\n", VALUE_CAPS[i].LogicalMin, VALUE_CAPS[i].LogicalMax);
-						printf("Physical: [%li, %li]\n", VALUE_CAPS[i].PhysicalMin, VALUE_CAPS[i].PhysicalMax);
-						if(VALUE_CAPS[i].IsRange){
-							printf("Usage:     [%hu, %hu]\n",VALUE_CAPS[i].Range.UsageMin,     VALUE_CAPS[i].Range.UsageMax);
-							printf("String:    [%hu, %hu]\n",VALUE_CAPS[i].Range.StringMin,    VALUE_CAPS[i].Range.StringMax);
-							printf("Designator:[%hu, %hu]\n",VALUE_CAPS[i].Range.DesignatorMin,VALUE_CAPS[i].Range.DesignatorMax);
-							printf("DataIndex: [%hu, %hu]\n",VALUE_CAPS[i].Range.DataIndexMin, VALUE_CAPS[i].Range.DataIndexMax);
-						} else {
-							printf("Usage:     [%hu,#%hu]\n",VALUE_CAPS[i].NotRange.Usage,     VALUE_CAPS[i].NotRange.Reserved1);
-							printf("String:    [%hu,#%hu]\n",VALUE_CAPS[i].NotRange.StringIndex,    VALUE_CAPS[i].NotRange.Reserved2);
-							printf("Designator:[%hu,#%hu]\n",VALUE_CAPS[i].NotRange.DesignatorIndex,VALUE_CAPS[i].NotRange.Reserved3);
-							printf("DataIndex: [%hu,#%hu]\n",VALUE_CAPS[i].NotRange.DataIndex, VALUE_CAPS[i].NotRange.Reserved4);
-						}
-						printf("\n");
-					}
-					delete[ ] VALUE_CAPS ;
-				}
-			}
-			delete[ ] PREPARSEDDATA ;*/
+				size_t count = 0;
+				for(size_t n(0); hDevice[n]; ++n) ++ count;
+				hDevice[count ++] = RAWINPUTDEVICELIST[i].hDevice;
+				# pragma warning(suppress: 6308) // 'realloc' might return null pointer:
+				// assigning null to 'hDevice', which is passed as an argument to 'realloc', will cause the original memory block to be leaked.
+				hDevice = static_cast<HANDLE *>(realloc(hDevice, sizeof(HANDLE)*count + sizeof(HANDLE)));
+				# pragma warning(suppress: 28182) // Dereferencing NULL pointer. 'hDevice' contains the same NULL value as 'realloc()' did.
+				hDevice[count] = nullptr;
 			}
 		}
 	}
-	RIDEV.usUsagePage = usUsagePage ;
-	RIDEV.usUsage = usUsage ;
-	RIDEV.hwndTarget = hWnd ;
-	assert( RegisterRawInputDevices(& RIDEV, 1, sizeof RIDEV) );
+	delete[ ] RAWINPUTDEVICELIST;
+	// 
+	if(ASSERT(hDevice))
+	{
+		RAWINPUTDEVICE = {usUsagePage, usUsage, dwFlags, hWnd};
+		ASSERT(RegisterRawInputDevices(& RAWINPUTDEVICE, 1, sizeof RAWINPUTDEVICE));
+	}
 }
-size_t HID<>::operator( )(WPARAM W, LPARAM L){
-	HRAWINPUT H = reinterpret_cast<HRAWINPUT>(L);
-	// ...
-	RAWINPUTHEADER RIHDR ;
-	// assert ?!
-	assert( GetRawInputData(H, RID_HEADER, & RIHDR, & size, sizeof RIHDR) == sizeof RIHDR );
-	if( RIHDR.dwType != RIM_TYPE )return 0u ;
-	if( set.find(RIHDR.hDevice) == set.end( ) )return 0u ;
-	// assert ?!
-	assert( GetRawInputData(H, RID_INPUT, nullptr, &size, sizeof RIHDR) == 0u );
-//		printf(" size = %u\n", size);
-	if( data )delete[ ]
-		data ;
-		data = new char[size];
-	// assert ?!
-	assert( GetRawInputData(H, RID_INPUT, data, &size, sizeof RIHDR) == size );
-/*	printf("size[%u] == sizeof(T)[%u]\n",
-		size - sizeof RIHDR - offsetof(RAWHID, bRawData), sizeof(T));*/
-//		if(!(size - sizeof RIHDR - offsetof(RAWHID, bRawData) == sizeof(T)))
-//		printf(" %u != %u\n", size - sizeof RIHDR - offsetof(RAWHID, bRawData), sizeof(T));
-//	assert( (size - sizeof RIHDR - offsetof(RAWHID, bRawData)) % sizeof(T) == 0u ); // '*!@?
-	return RIHDR.dwType == RIM_TYPEHID ? reinterpret_cast<RAWHID*>(data + sizeof RIHDR)->dwCount : 1u ; // '*!@?
-}
-HID<>::operator void *(void)
+void HID<void>::operator =(HID<void> &&HID) noexcept
 {
-	return (void *)(data ? data + sizeof(RAWINPUTHEADER) + offsetof(RAWHID, bRawData) : nullptr);
+	memcpy(this, &HID, sizeof HID);
+	memset(&HID, 0, sizeof HID);
+}
+HANDLE HID<>::operator( )(WPARAM W, LPARAM L)
+{
+	HRAWINPUT HRAWINPUT = reinterpret_cast<::HRAWINPUT>(L);
+	// realloc
+	if(cbSize < sizeof(RAWINPUTHEADER)) 
+	# pragma warning(suppress: 6308) // 'realloc' might return null pointer:
+	// assigning null to 'RAWINPUT', which is passed as an argument to 'realloc', will cause the original memory block to be leaked.
+	RAWINPUT = static_cast<::RAWINPUT *>(realloc(RAWINPUT, sizeof(RAWINPUTHEADER)));
+	if(ASSERT(GetRawInputData(HRAWINPUT, RID_HEADER, RAWINPUT, &cbSize, sizeof(RAWINPUTHEADER)) == sizeof(RAWINPUTHEADER)))
+	# pragma warning(suppress: 28182) // Dereferencing NULL pointer. 'RAWINPUT' contains the same NULL value as 'realloc()' did.
+	if(RAWINPUT->header.dwType == dwType) for(HANDLE *phDevice = hDevice; *phDevice; ++phDevice)
+	if(RAWINPUT->header.hDevice == *phDevice)
+	{
+		# pragma warning(suppress: 6001) // Using uninitialized memory 'cbSize'.
+		if(UINT cbSize; GetRawInputData(HRAWINPUT, RID_INPUT, nullptr, &cbSize, sizeof(RAWINPUTHEADER)), this->cbSize != cbSize)
+		# pragma warning(suppress: 6308) // 'realloc' might return null pointer:
+		// assigning null to 'RAWINPUT', which is passed as an argument to 'realloc', will cause the original memory block to be leaked.
+		RAWINPUT = static_cast<::RAWINPUT *>(realloc(RAWINPUT, this->cbSize = cbSize));
+		if(ASSERT(GetRawInputData(HRAWINPUT, RID_INPUT, RAWINPUT, &cbSize, sizeof(RAWINPUTHEADER)) == cbSize))
+		{
+			const_cast<DWORD &>(dwCount) = dwType == RIM_TYPEHID ? RAWINPUT->data.hid.dwCount : 1;
+			return RAWINPUT->header.hDevice;
+		}
+	}
+	const_cast<DWORD &>(dwCount) = 0;
+	return nullptr;
+}
+HID<>::operator void *(void) const
+{
+	if(sizeof(RAWINPUTHEADER) < cbSize) switch(dwType)
+	{
+		case RIM_TYPEMOUSE:	return & RAWINPUT->data.mouse;
+		case RIM_TYPEKEYBOARD:	return & RAWINPUT->data.keyboard;
+		case RIM_TYPEHID:	return & RAWINPUT->data.hid.bRawData;
+		default: ERROR("RIM_"); return nullptr;
+	}
+	return nullptr;
 }
